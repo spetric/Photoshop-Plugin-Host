@@ -8,7 +8,15 @@ Host engine can be used also from Embarcadero C++ with created libs (implib -a/ 
 Engine can be built in 32/64-bit mode and it supports 32/64-bit filters respectively.
 Before compiling psipHost, you must download Adobe Photoshop SDK and install it in photoshopapi directory.
 
-Currently supported image formats: RGB, BGR, RGBA, BGRA, GRAYSCALE, RGB + external alpha channel, BGR + external alpha channel, GRAYSCALE + external alpha channel.
+Currently supported image formats:
+- RGB
+- BGR
+- RGBA
+- BGRA
+- GRAYSCALE
+- RGB + external alpha channel
+- BGR + external alpha channel
+- GRAYSCALE + external alpha channel.
 
 Image can be passed to engine using single contiguous image buffer, or by adding scalines (for possibly non-contiguous image buffers). 
 
