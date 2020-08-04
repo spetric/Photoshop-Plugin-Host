@@ -21,7 +21,11 @@ Currently supported image formats:
 Image can be passed to engine using single contiguous image buffer, or by adding scalines (for possibly non-contiguous image buffers). 
 
 Currently not supported in host engine:
-masking (although mask can be set - will be available within few days), padding, parameter saving/restoring, filters requiring SuitePea, descriptors handling.
+- masking (although mask can be set - will be available within few days)
+- padding
+- parameter saving/restoring
+- filters requiring SuitePea
+- descriptors handling
 
 ### Required
 - C++ compiler (tested on Visual Studio 2017) 
