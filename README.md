@@ -15,14 +15,14 @@ Image can be passed to engine using single contiguous image buffer, or by adding
 Currently not supported in host engine:
 masking (although mask can be set - will be available within few days), padding, parameter saving/restoring, filters requiring SuitePea, descriptors handling.
 
-###Required
+### Required
 - C++ compiler (tested on Visual Studio 2017) 
 - Adobe Photoshop SDK
 
 ## capPspi
 Console application for testing engine. Requires OpenCV as image container.
 
-###Required
+### Required
 - C++ compiler (tested on Visual Studio 2017) 
 - OpenCV
 
