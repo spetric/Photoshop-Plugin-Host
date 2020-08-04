@@ -32,7 +32,7 @@ Currently not supported in host engine:
 - Adobe Photoshop SDK
 
 ## capPspi
-Console application for testing engine. Requires OpenCV as image container.
+Console application for testing engine.
 
 ### Required
 - C++ compiler (tested on Visual Studio 2017) 
