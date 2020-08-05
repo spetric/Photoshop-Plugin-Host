@@ -6,8 +6,10 @@ This dll engine enables loading and executing 8bf filters from user application.
 The code is written in VisualStudio 2017 C++ for Windows platform. Host engine can be used also from Embarcadero C++ with created libs (implib -a/ mkexp -p) and also from Delphi, but conversion of pspiHost.h and pspiGlobals.h to respective pas files needs to be done.
 
 Engine can be built in 32/64-bit mode and it supports 32/64-bit filters respectively.
-Before compiling psipHost, you must download Adobe Photoshop SDK and install it in photoshopapi directory.
-
+Before compiling psipHost, you must download Adobe Photoshop SDK and copy following SDK directories in photoshopapi directory under pspiHost:
+- photoshop
+- pica_sp
+- resources
 Currently supported image formats:
 - RGB
 - BGR
