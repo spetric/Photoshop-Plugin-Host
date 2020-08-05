@@ -10,6 +10,7 @@ Before compiling psipHost, you must download Adobe Photoshop SDK and copy follow
 - photoshop
 - pica_sp
 - resources
+
 Currently supported image formats:
 - RGB
 - BGR
