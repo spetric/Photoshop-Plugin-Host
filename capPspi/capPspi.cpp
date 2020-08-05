@@ -25,7 +25,9 @@ int main(int argc, char *argv[])
 								   " capPspi -command <input_image> <8bf-filter>\n"
                                    " <input_image> -> path to input image \n"
                                    " <8bf-filter> -> path to 8bf filter or path to folder for enumerate command\n"
-								   " commands: -execolor, -exeunchanged, -enumerate, -about\n" ) ; exit(1); }
+								   " commands: -execolor, -exeunchanged, -enumerate, -about\n"
+								   " Example: \n" 
+								   " capPspi -execolor C:\\images\\some-image.jpg C:\\filters\\fancy-filter.8bf \n") ; exit(1); }
 	String command = argv[0];
 	String input_filename = argv[1];
 	String filter_path = argv[2];
@@ -76,7 +78,9 @@ int main(int argc, char *argv[])
 	Mat srcAlpha = bgra[3];
 	pspiSetImage(PSPIW_IMT_BGR, imInput.cols, imInput.rows, (void*)imInput.data, imInput.step, (void*)imAlpha.data, imAlpha.step);	
 	*/
-	std::wcout << filter;
+	/* test roi setting
+	pspiSetRoi(120, 120, 500, 500);
+	*/
 	retCode = pspiPlugInLoad((wchar_t*)(filter.c_str()));
 	if (retCode	== 0)
 		retCode = pspiPlugInExecute(wh);
