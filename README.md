@@ -48,8 +48,8 @@ Currently not supported in host engine:
 - ```pspiAddMaskSL(void *maskScanLine);``` similar to pspiAddImageSL
 - ```pspiFinishMaskSL(int maskStride = 0);``` similar to pspiFinsihImageSL
 - ```pspiReleaseAllImages(void);``` releases all images and mask memory. When image to be filtered is passed to pspiHost, a copy of source image is created (dest). Source image is shared and dest image is owned by pspiHost. You don't need to call this API as it's called by host on exit, but if you're working with big images, sometimes it may come handy.
-- ```pspiSetProgressCallBack(PROGRESSCALLBACK progressProc);``` sets progress procedure call-back. You must pass your function that will display filtering progress (optional). Function definition: ```typedef void (__stdcall *PROGRESSCALLBACK)(unsigned int, unsigned int);```
-- ```pspiSetColorPickerCallBack(COLORPICKERCALLBACK colorPickerProc);``` if plug-in requires color service (color picker), you must pass your function that can deal with color picking (optional). Function definition: ```typedef bool (__stdcall *COLORPICKERCALLBACK)(unsigned int);``` 
+- ```pspiSetProgressCallBack(PROGRESSCALLBACK progressProc);``` sets progress procedure call-back. You must pass your function that will display filtering progress (optional). Function definition: ```typedef void (__stdcall *PROGRESSCALLBACK)(unsigned int, unsigned int);```.
+- ```pspiSetColorPickerCallBack(COLORPICKERCALLBACK colorPickerProc);``` if plug-in requires color service (color picker), you must pass your function that can deal with color picking (optional). Function definition: ```typedef bool (__stdcall *COLORPICKERCALLBACK)(unsigned int);```. 
 - ```pspiPlugInLoad(wchar_t *filter);``` loads 8bf filter. This API must be called before filter execution.
 - ```pspiPlugInAbout(HWND hWnd = 0);``` displays about window of loaded plugin. It's recommanded to pass your application windows handle.
 - ```pspiPlugInExecute(HWND hWnd = 0);``` executes loaded plugin. It's recommanded to pass your application windows handle.
