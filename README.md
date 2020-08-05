@@ -48,12 +48,12 @@ Currently not supported in host engine:
 - ```pspiAddMaskSL(void *maskScanLine);``` similar to pspiAddImageSL
 - ```pspiFinishMaskSL(int maskStride = 0);``` similar to pspiFinsihImageSL
 - ```pspiReleaseAllImages(void);``` releases all images and mask memory. When image to be filtered is passed to pspiHost, a copy of source image is created (dest). Source image is shared and dest image is owned by pspiHost. You don't need to call this API as it's called by host on exit, but if you're working with big images, sometimes it may come handy.
-- ```pspiSetProgressCallBack(PROGRESSCALLBACK progressProc);``` sets progress procedure call-back. You must pass your function that will display filtering progress (optional).
-- ```pspiSetColorPickerCallBack(COLORPICKERCALLBACK colorPickerProc);``` if plug-in requires color service (color picker), you must pass your function that can deal with color picking (optional).
+- ```pspiSetProgressCallBack(PROGRESSCALLBACK progressProc);``` sets progress procedure call-back. You must pass your function that will display filtering progress (optional). Function definition: ```typedef void (__stdcall *PROGRESSCALLBACK)(unsigned int, unsigned int);```.
+- ```pspiSetColorPickerCallBack(COLORPICKERCALLBACK colorPickerProc);``` if plug-in requires color service (color picker), you must pass your function that can deal with color picking (optional). Function definition: ```typedef bool (__stdcall *COLORPICKERCALLBACK)(unsigned int &);```. Picked color can be 0x00rrggbb or 0x00bbggrr depending on your application, but it must suite image type (RGB or BGR). 
 - ```pspiPlugInLoad(wchar_t *filter);``` loads 8bf filter. This API must be called before filter execution.
 - ```pspiPlugInAbout(HWND hWnd = 0);``` displays about window of loaded plugin. It's recommanded to pass your application windows handle.
 - ```pspiPlugInExecute(HWND hWnd = 0);``` executes loaded plugin. It's recommanded to pass your application windows handle.
-- ```pspiPlugInEnumerate(ENUMCALLBACK enumFunc, bool recurseSubFolders = true);``` routine for enumerating plugins in directory preciously set by ```pspiSetPath(wchar_t *filterFolder);```  
+- ```pspiPlugInEnumerate(ENUMCALLBACK enumFunc, bool recurseSubFolders = true);``` routine for enumerating plugins in directory previously set by ```pspiSetPath(wchar_t *filterFolder);```. Function definition: ```typedef void (__stdcall *ENUMCALLBACK)(const char *, const char *, const char *, const wchar_t *);```.  
 
 ### Important note
 Source image from your application (one that needs to be filtered) passed to pspiHost using pspiSetImage, or by pspiStartImageSL-pspiAddImageSL-pspiFinishImageSL block is shared (image buffer is shared). You must not delete this image in your application before executing plug-in. Otherwise, pspiHost will crash. The same stands for mask you pass to pspiHost.
