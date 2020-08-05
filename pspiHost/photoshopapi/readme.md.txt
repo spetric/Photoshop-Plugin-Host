@@ -1,0 +1,1 @@
+Put Adobe SDK files in this directory
