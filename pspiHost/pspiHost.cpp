@@ -10,11 +10,24 @@ int __stdcall pspiSetPath(wchar_t *filterFolder)
 {
 	return piCore.SetPath(filterFolder);
 }
+//---------------------------------------------------------------------------
+// set filter roi
+//---------------------------------------------------------------------------
+int __stdcall pspiSetRoi(int top, int left, int bottom, int right)
+{
+	piCore.HostRecord.roiRect.top = top;
+	piCore.HostRecord.roiRect.left = left;
+	piCore.HostRecord.roiRect.bottom = bottom;
+	piCore.HostRecord.roiRect.right = right;
+	piCore.HostRecord.roiRect.Normalize();
+	return 0;
+}
 //-----------------------------------------------------------------
 // set working image - pass contiguous buffer
 //-----------------------------------------------------------------
 int __stdcall pspiSetImage(TImgType type, int width, int height, void *imageBuff, int imageStride, void *alphaBuff, int alphaStride)
 {
+	pspiSetRoi();	// clear roi
 	return piCore.SetImage(type, width, height, imageBuff, imageStride, alphaBuff, alphaStride);
 }
 //-----------------------------------------------------------------
@@ -29,6 +42,7 @@ int __stdcall pspiSetMask(int width, int height, void *maskBuff, int maskStride,
 //-----------------------------------------------------------------
 int __stdcall pspiStartImageSL(TImgType type, int width, int height, bool externalAplha)
 {
+	pspiSetRoi();	// clear roi
 	imgSclIndex = 0;
 	return piCore.StartImageSL(type, width, height, externalAplha);
 }
@@ -73,6 +87,7 @@ int __stdcall pspiFinishMaskSL(int maskStride)
 //-----------------------------------------------------------------
 int __stdcall pspiReleaseAllImages(void)
 {
+	pspiSetRoi();	// clear roi
 	piCore.ReleaseAllImages();
 	return 0;
 }

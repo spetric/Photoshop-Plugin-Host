@@ -7,6 +7,7 @@
 namespace fsys = experimental::filesystem;
 static vector<string> GFilterData;
 static bool GFilterSupCases[7];
+//static bool GDontCopySrc2Dst;
 //void *GThisPtr;
 //-----------------------------------------------------------------
 extern "C" void AdvanceStateProcessPtr(void* object)
@@ -197,6 +198,8 @@ BOOL CALLBACK spEnumPIPL(HINSTANCE module, LPCWSTR type, LPCWSTR name, LONG para
 					  {
 						  GFilterSupCases[i] = (fici_ptr[i].inputHandling > 0x00);
 					  }
+					  // check flags1 (only for 0, should be the same for all...probably)
+					  //GDontCopySrc2Dst = fici_ptr[0].flags1 & PIFilterDontCopyToDestinationBit;
                       }
                       break;
                  }
@@ -477,9 +480,31 @@ void  TPspiCore::prepareSuites(void)
 	 bProcs.reserveProc = DoBufferReserve;
 	 bProcs.allocateProc64 = DoAllocateBuffer64;
 	 bProcs.spaceProc64 = DoBufferSpace64; 
-	 // big doc
-	 // bigDoc;
-}
+	 // big doc - new stuff
+	 // NOTE: it plugin uses big doc struct, 	bigDoc.PluginUsing32BitCoordinates will be non-zero
+	 // we will set data for this structure, but not use it now
+	 memset(&bigDoc, 0, sizeof(bigDoc));
+	 //--- filter rect
+	 if (!hRecordPtr->roiRect.IsEmpty())
+     {
+		bigDoc.filterRect32.top  = hRecordPtr->roiRect.top;
+		bigDoc.filterRect32.left = hRecordPtr->roiRect.left;
+		bigDoc.filterRect32.bottom = hRecordPtr->roiRect.bottom;
+		bigDoc.filterRect32.right = hRecordPtr->roiRect.right;
+     }
+ 	 else
+     {
+		bigDoc.filterRect32.top = 0;
+		bigDoc.filterRect32.left = 0;
+		bigDoc.filterRect32.bottom = hRecordPtr->srcImage->height;
+		bigDoc.filterRect32.right = hRecordPtr->srcImage->width;
+     }
+	 bigDoc.imageSize32.h = hRecordPtr->srcImage->width;
+	 bigDoc.imageSize32.v = hRecordPtr->srcImage->height;
+	 //
+	 bigDoc.wholeSize32.h = hRecordPtr->srcImage->width;
+	 bigDoc.wholeSize32.v = hRecordPtr->srcImage->height;
+	 }
 //---------------------------------------------------------------------------
 void  TPspiCore::prepareFilter(void)
 {
@@ -504,10 +529,7 @@ void  TPspiCore::prepareFilter(void)
  //
  fRecord.serialNumber = 0;               // Host's serial number, to allow copy protected plug-in modules.
  fRecord.abortProc = DoTestAbort;        // The plug-in module may call this no-argument...
- if (hRecordPtr->progressProc)
-     fRecord.progressProc = (ProgressProc)(hRecordPtr->progressProc);  // The plug-in module may call this two-argument...
- else
-     fRecord.progressProc = (ProgressProc)DoProgressProc;  // The plug-in module may call this two-argument...
+ fRecord.progressProc = (ProgressProc)DoProgressProc;  // The plug-in module may call this two-argument...
  fRecord.parameters = NULL;              // A handle, initialized to NIL by Photoshop.
  // imageSize -> depreciated -> check BigDocumentStruct::imageSize32
  // size of complete image if selection is not floating
@@ -515,7 +537,7 @@ void  TPspiCore::prepareFilter(void)
  fRecord.imageSize.h = hRecordPtr->srcImage->width;   // Size of image h
  fRecord.planes =  hRecordPtr->srcImage->channels + hRecordPtr->srcImage->alphaChans;    // planes   
  //--- filter rect
- if (hRecordPtr->hasBoundingRectangle)
+ if (!hRecordPtr->roiRect.IsEmpty())
     {
     fRecord.filterRect.top    = hRecordPtr->roiRect.top;      // Rectangle to filter top
     fRecord.filterRect.left   = hRecordPtr->roiRect.left;     // Rectangle to filter left
@@ -568,7 +590,7 @@ void  TPspiCore::prepareFilter(void)
     {
     fRecord.haveMask = true;
     fRecord.filterCase = filterCaseFlatImageWithSelection;
-    mask_size =  hRecordPtr->srcMask->height * hRecordPtr->srcMask->width;
+    mask_size =  hRecordPtr->srcMask->height * hRecordPtr->srcMask->width; // test
     fRecord.maskData = NULL;
     }
 // test
@@ -668,7 +690,7 @@ void  TPspiCore::prepareFilter(void)
  // **** New in 4.0 ****
  //
  fRecord.descriptorParameters = &pDescriptorParameters;	// For recording and playback
- fRecord.errorString = &errString;      // For silent and errReportString
+ fRecord.errorString = &errString;       // For silent and errReportString
  fRecord.channelPortProcs = &cProcs;     // Suite for passing pixels through channel ports.
   fRecord.documentInfo = NULL;	         // The document info for the document being filtered.
  //
@@ -683,8 +705,10 @@ void  TPspiCore::prepareFilter(void)
  fRecord.iCCprofileData = NULL;		// Handle containing the ICC profile for the image. (NULL if none)
  fRecord.iCCprofileSize = 0;		// size of profile.
  //fRecord.canUseICCProfiles;	        // non-zero if the host can export ICC profiles...
- // test for big doc
- // fRecord.bigDocumentData = &bigDoc;
+ //
+ // **** New in 8.0 ****
+ //
+ fRecord.bigDocumentData = 0; // &bigDoc; // not for now...
  }
 //---------------------------------------------------------------------------
 // resize buffer 
@@ -956,11 +980,60 @@ bool TPspiCore::buffer2Image(SpspiImage *image, void *data, Rect plugRect,  int 
 //---------------------------------------------------------------------------
 void TPspiCore::dst2Src(void)
 {
-	for (int i = 0; i < hRecordPtr->srcImage->height; i++)
+	int top = fRecord.filterRect.top;
+	int bottom = fRecord.filterRect.bottom;
+	int left = fRecord.filterRect.left;
+	int right = fRecord.filterRect.right;
+	int iStride = (right - left) * hRecordPtr->srcImage->channels;
+	int aStride = (right - left) * hRecordPtr->srcImage->alphaChans;
+	bool alphaScan = hRecordPtr->srcImage->alphaScan;
+	LPBYTE src_ptr, dst_ptr, mask_ptr, src_alpha = 0, dst_alpha = 0;
+	if (SrcMask.width > 0 && !SrcMask.useByPi)	// there is a mask and it's not used by pi
 	{
-		memcpy(hRecordPtr->srcImage->imageScan[i], hRecordPtr->dstImage->imageScan[i], hRecordPtr->srcImage->imageStride);
-		if (hRecordPtr->srcImage->alphaScan)
-			memcpy(hRecordPtr->srcImage->alphaScan[i], hRecordPtr->dstImage->alphaScan[i], hRecordPtr->srcImage->alphaStride);
+		for (int i = top; i < bottom; i++)
+		{
+			src_ptr  = hRecordPtr->srcImage->imageScan[i] + left * hRecordPtr->srcImage->channels;
+			dst_ptr  = hRecordPtr->dstImage->imageScan[i] + left * hRecordPtr->dstImage->channels;
+			mask_ptr = hRecordPtr->srcMask->maskScan[i] + left;
+			if (alphaScan)
+			{
+				src_alpha = hRecordPtr->srcImage->alphaScan[i] + left;
+				dst_alpha = hRecordPtr->dstImage->alphaScan[i] + left;
+			}
+			for (int j = left; j < right; i++)
+			{
+				if (*mask_ptr > 0x00)	// there is something in the mask
+				// blend using mask
+				for (int k = 0; k < hRecordPtr->srcImage->channels; k++)
+				{
+					// no floating point arithmetics, only integers
+					uint32 mv = (uint32)*mask_ptr + 1;
+					uint32 bp = (uint32)src_ptr[k] * (256 - mv) + (uint32)dst_ptr[k] * mv;
+					src_ptr[k] = (unsigned char)(bp>>8);
+				}
+				src_ptr += hRecordPtr->srcImage->channels;
+				dst_ptr += hRecordPtr->dstImage->channels;
+			}
+			// what about external alpha, shell we blend it? Not for now...just copy
+			if (alphaScan)
+				memcpy(src_alpha, dst_alpha, aStride);
+		}
+	}
+	else
+	{
+		for (int i = top; i < bottom; i++)
+		{
+			src_ptr  = hRecordPtr->srcImage->imageScan[i] + left * hRecordPtr->srcImage->channels;
+			dst_ptr  = hRecordPtr->dstImage->imageScan[i] + left * hRecordPtr->dstImage->channels;
+			if (alphaScan)
+			{
+				src_alpha = hRecordPtr->srcImage->alphaScan[i] + left;
+				dst_alpha = hRecordPtr->dstImage->alphaScan[i] + left;
+			}
+			memcpy(src_ptr, dst_ptr, iStride);	
+			if (alphaScan)
+				memcpy(src_alpha, dst_alpha, aStride);
+		}
 	}
 }
 //---------------------------------------------------------------------------
@@ -1419,7 +1492,8 @@ int TPspiCore::PlugInExecute(HWND hWnd)
 	// check if plug-in is loaded
 	if (!HostRecord.filterLoaded)
 		return PSPIW_ERR_FILTER_NOT_LOADED;
-	aState.Init();
+	aState.Init();		
+	handleMap.clear();	// clear handle map
 	HostRecord.srcImage = &SrcImage;
 	HostRecord.dstImage = &DstImage;
 	HostRecord.hWnd = hWnd;
@@ -1427,6 +1501,13 @@ int TPspiCore::PlugInExecute(HWND hWnd)
 		HostRecord.srcMask = &SrcMask;
 	else
 		HostRecord.srcMask = 0;
+	if (!HostRecord.roiRect.IsEmpty())	// adjust roi if necessary
+	{
+		if (HostRecord.roiRect.bottom > HostRecord.srcImage->height)
+			HostRecord.roiRect.bottom = HostRecord.srcImage->height;
+		if (HostRecord.roiRect.right > HostRecord.srcImage->width)
+			HostRecord.roiRect.right = HostRecord.srcImage->width;
+	}
 	// raspaljotka 
 	int rc = 0;
 	SpspiHandle parHandle;
@@ -1448,7 +1529,6 @@ int TPspiCore::PlugInExecute(HWND hWnd)
 	try
 	{
 	   filterStage = 0;
-	   //fRecord.parameters = DoNewPIHandle(100000); // test
 	   PluginMainProc(filterSelectorParameters, &fRecord, dataPtr, &result);
 	   if (result ==  noErr)
 		  {
@@ -1490,7 +1570,8 @@ if (result == noErr)
 	{
 	dst2Src();
 	}
-//TODO: release suite handles 
+//TODO: release suite handles - scroll through handleMap and release allocated handles
+handleMap.clear();	// clear handle map
  return rc;
 }
 //---------------------------------------------------------------------------

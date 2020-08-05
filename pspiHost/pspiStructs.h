@@ -56,6 +56,48 @@ struct SpspiMask
 		useByPi = false; // for now
 	}
 };
+struct SpspiRect
+{
+	int top;
+	int left;
+	int bottom;
+	int right;
+	void Init()
+	{
+		top = left = right = bottom = 0;
+	}
+	void Normalize()
+	{
+		if (top < 0)
+			top = 0;
+		if (left < 0)
+			left = 0;
+		if (bottom < 0)
+			bottom = 0;
+		if (right < 0)
+			right = 0;
+		if (top > bottom)	// swap
+		{
+			top = top ^ bottom;
+			bottom = bottom ^ top;
+			top = top ^ bottom;
+		}
+		if (left > right)	// swap
+		{
+			left = left ^ right;
+			right = right ^ left;
+			left = left ^ right;
+		}
+	}
+	bool IsEmpty()
+	{
+		return ((bottom - top) == 0) || ((right - left) == 0);
+	}
+	SpspiRect()
+	{
+		Init();
+	}
+};
 struct SpspiHostRecord
 {
 	SpspiImage *srcImage;
@@ -71,13 +113,11 @@ struct SpspiHostRecord
 	uint32 foregroundColor;
 	uint32 backgroundColor;
 	HWND hWnd;
-    PROGRESSCALLBACK progressProc;
-	bool hasBoundingRectangle;
-	Rect roiRect;
+	SpspiRect roiRect;
 	std::wstring initialEnvPath;
 	std::wstring workingEnvPath;
 	std::wstring piPath;
-	SpspiHostRecord()
+	void Init()
 	{
 		srcImage = 0;
 		srcMask = 0;
@@ -92,8 +132,6 @@ struct SpspiHostRecord
 		foregroundColor = (int)0x00ffffff;
 		backgroundColor = 0;
 		hWnd = 0;
-		progressProc = 0;
-		hasBoundingRectangle = false;
 		roiRect.top = 0;
 		roiRect.bottom = 0;
 		roiRect.left = 0;
@@ -102,10 +140,13 @@ struct SpspiHostRecord
 		workingEnvPath = L"";
 		piPath = L"";
 	}
+	SpspiHostRecord()
+	{
+		Init();
+	}
 };
 struct SpspiAdvanceState
 {
-	bool copyTgt2Out;
 	bool inBuffOK;
 	bool outBuffOK;
 	int inSize;
@@ -116,7 +157,6 @@ struct SpspiAdvanceState
 	int lastOutHiPlane;
 	void Init()
 	{
-		copyTgt2Out= true;
 		inBuffOK = false;
 		outBuffOK = false;
 		inSize = 0;

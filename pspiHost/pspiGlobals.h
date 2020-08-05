@@ -1,6 +1,5 @@
 #pragma once
 #include <string>
-#include "PITypes.h"
 // constants
 const int PSPIW_ERR_FILTER_NOT_LOADED   = 1;
 const int PSPIW_ERR_FILTER_BAD_PROC		= 2;
@@ -18,6 +17,6 @@ const int PSPIW_ERR_BAD_PARAM			= 14;
 enum TImgType {PSPIW_IMT_BGR = 0, PSPIW_IMT_BGRA, PSPIW_IMT_RGB, PSPIW_IMT_RGBA, PSPIW_IMT_GRAY, PSPIW_IMT_GRAYA };
 // typedefs
 typedef void (__stdcall *ENUMCALLBACK)(const char *, const char *, const char *, const wchar_t *);
-typedef void (__stdcall *PROGRESSCALLBACK)(uint32, uint32);
-typedef bool (__stdcall *COLORPICKERCALLBACK)(uint32);
+typedef void (__stdcall *PROGRESSCALLBACK)(unsigned int, unsigned int);
+typedef bool (__stdcall *COLORPICKERCALLBACK)(unsigned int);
 
