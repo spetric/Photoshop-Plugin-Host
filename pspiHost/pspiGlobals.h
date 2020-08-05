@@ -18,5 +18,5 @@ enum TImgType {PSPIW_IMT_BGR = 0, PSPIW_IMT_BGRA, PSPIW_IMT_RGB, PSPIW_IMT_RGBA,
 // typedefs
 typedef void (__stdcall *ENUMCALLBACK)(const char *, const char *, const char *, const wchar_t *);
 typedef void (__stdcall *PROGRESSCALLBACK)(unsigned int, unsigned int);
-typedef bool (__stdcall *COLORPICKERCALLBACK)(unsigned int);
+typedef bool (__stdcall *COLORPICKERCALLBACK)(unsigned int &);
 
