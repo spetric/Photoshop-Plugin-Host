@@ -53,7 +53,7 @@ Currently not supported in host engine:
 - ```pspiPlugInLoad(wchar_t *filter);``` loads 8bf filter. This API must be called before filter execution.
 - ```pspiPlugInAbout(HWND hWnd = 0);``` displays about window of loaded plugin. It's recommanded to pass your application windows handle.
 - ```pspiPlugInExecute(HWND hWnd = 0);``` executes loaded plugin. It's recommanded to pass your application windows handle.
-- ```pspiPlugInEnumerate(ENUMCALLBACK enumFunc, bool recurseSubFolders = true);``` routine for enumerating plugins in directory previously set by ```pspiSetPath(wchar_t *filterFolder);```. Function definition: ```typedef void (__stdcall *ENUMCALLBACK)(const char *, const char *, const char *, const wchar_t *);```.  
+- ```pspiPlugInEnumerate(ENUMCALLBACK enumFunc, bool recurseSubFolders = true);``` routine for enumerating plugins in directory previously set by ```pspiSetPath(wchar_t *filterFolder);```. Function definition: ```typedef void (__stdcall *ENUMCALLBACK)(const char *, const char *, const char *, const wchar_t *);```. Function paremeters are: filter category, filter name, filter entrypoint name and filter full path.
 
 ### Important notes
 Source image from your application (one that needs to be filtered) passed to pspiHost using pspiSetImage, or by pspiStartImageSL-pspiAddImageSL-pspiFinishImageSL block is shared (image buffer is shared). You must not delete this image in your application before executing plug-in. Otherwise, pspiHost will crash. The same stands for the source mask passed to pspiHost.
