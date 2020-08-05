@@ -38,7 +38,7 @@ Currently not supported in host engine:
 
 ### pspiHost APIs:
 - ```pspiSetPath(wchar_t *filterFolder);``` sets path to filters directory (usually some 8bf collection.
-- ```pspiSetRoi(int top = 0, int left = 0, int bottom = 0, int right = 0);``` -ets ROI (region of interest) to be filtered.
+- ```pspiSetRoi(int top = 0, int left = 0, int bottom = 0, int right = 0);``` sets ROI (region of interest) to be filtered (rectangle).
 - ```pspiSetImage(TImgType type, int width, int height, void *imageBuff, int imageStride, void *alphaBuff = 0, int alphaStride = 0);``` sets source image by passing contiguous image buffer pointer. If image has external alpha channel, pointer to alpha buffer can be passed as well. Also, you must pass image type, image width, height and image stride value and alpha stride value if alpha buffer is not-null.  
 - ```pspiSetMask(int width, int height, void *maskBuff, int maskStride, bool useMaskByPi);``` sets 8-bit single channel grayscale mask. Contiguous buffer must be passed, as well as mask width, height (usually the same size as image), mask stride value and boolean value useMakByPi. This value tells if the mask will be used by plug-in (not yet impmeneted) or for blending filtered and source image (implemented). 
 - ```pspiStartImageSL(TImgType type, int width, int height, bool externalAlpha = false);``` prepares host image container for accepting source image scanlines. This option is enables dealing with images with non-contiguous memory.
