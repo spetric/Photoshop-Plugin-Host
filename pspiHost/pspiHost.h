@@ -18,8 +18,8 @@ extern "C" PSPI_API int __stdcall pspiSetImage(TImgType type, int width, int hei
 extern "C" PSPI_API int __stdcall pspiSetMask(int width, int height, void *maskBuff, int maskStride, bool useMaskByPi);
 // block for adding image scanlines (possibly non-contiguous image)
 // note: source image is shared - do not destroy source image in your host program before plug-in is executed
-extern "C" PSPI_API int __stdcall pspiStartImageSL(TImgType type, int width, int height, bool externalAlpha);
-extern "C" PSPI_API int __stdcall pspiAddImageSL(void *imageScanLine, void *alphaScanLine);
+extern "C" PSPI_API int __stdcall pspiStartImageSL(TImgType type, int width, int height, bool externalAlpha = false);
+extern "C" PSPI_API int __stdcall pspiAddImageSL(void *imageScanLine, void *alphaScanLine = 0);
 extern "C" PSPI_API int __stdcall pspiFinishImageSL(int imageStride = 0, int alphaStride = 0);
 // block dor addding mask scanlines (possibly non-contiguous mask)
 // note: source mask is shared - do not destroy source maske in your host program before plug-in is executed
