@@ -36,6 +36,7 @@ Currently not supported in host engine:
 - Adobe Photoshop SDK
 
 ### pspiHost APIs:
+- ```char* __stdcall pspiGetVersion(void);``` get current version (char of 3 charactes).
 - ```pspiSetPath(wchar_t *filterFolder);``` sets path to filters directory (usually some 8bf collection).
 - ```pspiSetRoi(int top = 0, int left = 0, int bottom = 0, int right = 0);``` sets ROI (region of interest) to be filtered (rectangle).
 - ```pspiSetImage(TImgType type, int width, int height, void *imageBuff, int imageStride, void *alphaBuff = 0, int alphaStride = 0);``` sets source image by passing contiguous image buffer pointer. If image has external alpha channel, pointer to alpha buffer can be passed as well. Also, you must pass image type, image width, height and image stride value and alpha stride value if alpha buffer is not-null.  
