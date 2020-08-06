@@ -3,6 +3,15 @@
 #include "TPspiCore.h"
 TPspiCore piCore;
 static int imgSclIndex, maskSclIndex;
+static char version[3];
+//-----------------------------------------------------------------
+// get version
+//-----------------------------------------------------------------
+char* __stdcall pspiGetVersion(void)
+{  
+	memcpy(version, "0.5", 3);
+	return version;
+}
 //-----------------------------------------------------------------
 // set path
 //-----------------------------------------------------------------

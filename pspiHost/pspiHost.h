@@ -6,6 +6,8 @@
 #endif
 #include <windows.h>
 #include "pspiGlobals.h"
+// get psipHost version
+extern "C" PSPI_API char* __stdcall pspiGetVersion(void);
 // set path
 extern "C" PSPI_API int __stdcall pspiSetPath(wchar_t *filterFolder);
 // set roi
@@ -15,7 +17,7 @@ extern "C" PSPI_API int __stdcall pspiSetRoi(int top = 0, int left = 0, int bott
 extern "C" PSPI_API int __stdcall pspiSetImage(TImgType type, int width, int height, void *imageBuff, int imageStride, void *alphaBuff = 0, int alphaStride = 0);
 // set mask using contiguous memory buffer pointer
 // note: source mask is shared - do not destroy source maske in your host program before plug-in is executed
-extern "C" PSPI_API int __stdcall pspiSetMask(int width, int height, void *maskBuff, int maskStride, bool useMaskByPi);
+extern "C" PSPI_API int __stdcall pspiSetMask(int width, int height, void *maskBuff, int maskStride, bool useMaskByPi = true);
 // block for adding image scanlines (possibly non-contiguous image)
 // note: source image is shared - do not destroy source image in your host program before plug-in is executed
 extern "C" PSPI_API int __stdcall pspiStartImageSL(TImgType type, int width, int height, bool externalAlpha = false);
@@ -23,7 +25,7 @@ extern "C" PSPI_API int __stdcall pspiAddImageSL(void *imageScanLine, void *alph
 extern "C" PSPI_API int __stdcall pspiFinishImageSL(int imageStride = 0, int alphaStride = 0);
 // block dor addding mask scanlines (possibly non-contiguous mask)
 // note: source mask is shared - do not destroy source maske in your host program before plug-in is executed
-extern "C" PSPI_API int __stdcall pspiStartMaskSL(int width, int height, bool useByPi);
+extern "C" PSPI_API int __stdcall pspiStartMaskSL(int width, int height, bool useMaskByPi = true);
 extern "C" PSPI_API int __stdcall pspiAddMaskSL(void *maskScanLine);
 extern "C" PSPI_API int __stdcall pspiFinishMaskSL(int maskStride = 0);
 // release all images - all image buffers including mask are released when application is closed, but sometimes it's necessary to free memory (big images) 
