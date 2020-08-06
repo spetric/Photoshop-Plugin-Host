@@ -1067,6 +1067,7 @@ void TPspiCore::ProcessAdvanceState(void)
 			free(fRecord.maskData);
 		fRecord.maskData = 0;
 		aState.maskSize = 0;
+		aState.lastMaskRect = Rect();
 	}
 	if (!aState.inBuffOK)
 	{
@@ -1074,6 +1075,7 @@ void TPspiCore::ProcessAdvanceState(void)
 			free(fRecord.inData);
 		fRecord.inData = 0;
 		aState.inSize = 0;
+		aState.lastInRect = Rect();
 	}
 	if (!aState.outBuffOK)
 	{
@@ -1096,9 +1098,6 @@ void TPspiCore::ProcessAdvanceState(void)
 		aState.lastOutLoPlane = fRecord.outLoPlane;
 		aState.lastOutHiPlane = fRecord.outHiPlane;
 	}
-	/* TODO: tute imamo problem
-	if (fRecord.haveMask)
-		Mask2PlugIn(fRecord.maskRect); */
 }
 //-----------------------------------------------------------------
 // set path
