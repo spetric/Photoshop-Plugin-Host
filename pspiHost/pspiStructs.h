@@ -37,6 +37,7 @@ struct SpspiImage
 		alphaScan = 0;
 	}
 };
+/*
 struct SpspiMask
 {
 	int width;
@@ -45,7 +46,6 @@ struct SpspiMask
 	void *maskBuff;
 	int maskStride;
 	LPBYTE *maskScan;
-	bool useByPi;
 	SpspiMask()
 	{
 		width = 0;
@@ -53,9 +53,9 @@ struct SpspiMask
 		maskBuff = 0;
 		maskStride = 0;
 		maskScan = 0;
-		useByPi = false; // for now
 	}
 };
+*/
 struct SpspiRect
 {
 	int top;
@@ -101,9 +101,9 @@ struct SpspiRect
 struct SpspiHostRecord
 {
 	SpspiImage *srcImage;
-	SpspiMask  *srcMask;
 	SpspiImage *dstImage;
-	SpspiMask  *dstMask;
+	SpspiImage  *mask;
+	bool useMaskByPi;
 	HINSTANCE dllHandle;
 	std::wstring filterPathName;	// filter name (full path)  
 	std::string piCategory;
@@ -120,9 +120,9 @@ struct SpspiHostRecord
 	void Init()
 	{
 		srcImage = 0;
-		srcMask = 0;
 		dstImage = 0;
-		dstMask = 0;
+		mask = 0;
+		useMaskByPi = false;
 		dllHandle = 0;
 		filterPathName = L"";
 		piCategory = "";
@@ -149,9 +149,13 @@ struct SpspiAdvanceState
 {
 	bool inBuffOK;
 	bool outBuffOK;
+	bool maskBuffOK;
 	int inSize;
 	int outSize;
+	int maskSize;
+	Rect lastInRect;
 	Rect lastOutRect;
+	Rect lastMaskRect;
 	int lastOutRowBytes;
 	int lastOutLoPlane;
 	int lastOutHiPlane;
@@ -159,13 +163,16 @@ struct SpspiAdvanceState
 	{
 		inBuffOK = false;
 		outBuffOK = false;
+		maskBuffOK = false;
 		inSize = 0;
 		outSize = 0;
-	    lastOutRowBytes = 0;
+		maskSize = 0;
+		lastInRect = Rect();
+		lastOutRect = Rect();
+		lastMaskRect = Rect();
+		lastOutRowBytes = 0;
 	    lastOutLoPlane = 0;
 	    lastOutHiPlane = 0;
-		lastOutRect = Rect();
-		lastOutRect = Rect();
 	}
 	SpspiAdvanceState()
 	{
