@@ -25,12 +25,12 @@ class TPspiCore
 		void prepareSuites(void);
 		void prepareFilter(void);
 		void *resizeBuffer(void *data, int &rowBytes, Rect rect, int loPlane, int hiPlane, int &prevSize);
-		int resizeImage(SpspiImage *src, float sampleRate, int rectW, int rectH);
-		bool image2Buffer(SpspiImage *image, void *data, Rect plugRect, int rowBytes, int loPlane, int hiPlane);
+		int resizeImage(SpspiImage *src, SpspiImage *res, float sampleRate, int rectW, int rectH);
+		bool image2Buffer(SpspiImage *image, void *data, Rect plugRect, int rowBytes, int loPlane, int hiPlane, SpspiImage *res = NULL, float sampleRate = 0.0f);
 		bool buffer2Image(SpspiImage *image, void *data, Rect plugRect, int rowBytes, int loPlane, int hiPlane);
 		void dst2Src(void);
 		void releaseImage(SpspiImage *img, bool dispose);
-		void releaseMask(SpspiMask *mask);
+		//void releaseMask(SpspiImage *mask);
 		int filterStage;
 		unordered_map <unsigned long, SpspiHandle*> handleMap;
 		// pointer to host record
@@ -57,9 +57,10 @@ class TPspiCore
 		SpspiAdvanceState aState;
 	public:
 		SpspiImage SrcImage;
-		SpspiMask SrcMask;
 		SpspiImage DstImage;
 		SpspiImage ResImage;
+		SpspiImage SrcMask;
+		SpspiImage ResMask;
 		SpspiHostRecord HostRecord;
 		PROGRESSCALLBACK ProgressCallBack;
 		COLORPICKERCALLBACK ColorPickerCallback;
@@ -82,7 +83,9 @@ class TPspiCore
 		int PlugInAbout(HWND hWnd);
 		int PlugInExecute(HWND hWnd);
 		int PlugInEnumerate(ENUMCALLBACK enumFunc, bool recurseSubFolders);
-		static inline float Fixed2Float(Fixed f_number);
-		static inline Fixed FixRatio(short numer, short denom);
+		// inline
+		inline float Fixed2Float(Fixed f_number);
+		inline Fixed FixRatio(short numer, short denom);
+		inline bool EqRects(Rect *r1, Rect *r2);
 };
 

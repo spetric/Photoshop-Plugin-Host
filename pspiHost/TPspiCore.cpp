@@ -217,21 +217,6 @@ if (loadedPiPL)
 }
 return loadedPiPL;
 }
-//---------------------------------------------------------------------------
-// static members
-//---------------------------------------------------------------------------
-inline float TPspiCore::Fixed2Float(Fixed f_number)
-{
-if (f_number == 0)
-   return 0;
-else
-   {
-   int denom, number;
-   denom = f_number<<16;
-   number = f_number>>16;
-   return ((float)number + (float)denom/65536);
-   }
-}
 //-----------------------------------------------------------------
 // private methods section
 //-----------------------------------------------------------------
@@ -243,29 +228,32 @@ void TPspiCore::releaseImage(SpspiImage *img, bool dispose)
 			delete []img->imageScan;
 		if (img->alphaScan)
 			delete []img->alphaScan;
-		img->imageScan = 0;
-		img->alphaScan = 0;
 		if (img->imageBuff && dispose)
 			free(img->imageBuff);
 		if (img->alphaBuff && dispose)
 			free(img->alphaBuff);
+		img->imageScan = 0;
+		img->alphaScan = 0;
 		img->imageBuff = 0;
 		img->alphaBuff = 0;
 		img->width = 0;
 		img->height = 0;
 		img->imageStride = 0;
 		img->alphaStride = 0;
-		img->imageScan = 0;
-		img->alphaScan = 0;
+		img->channels = 0;
+		img->alphaChans = 0;
 	}
 }
 //-----------------------------------------------------------------
-void TPspiCore::releaseMask(SpspiMask *mask)
+/*
+void TPspiCore::releaseMask(SpspiMask *mask, bool dispose)
 {
 	if (mask->width) 
 		{
 		if (mask->maskScan)
 			delete []mask->maskScan;
+		if (mask->maskBuff && dispose)
+			free(mask->maskBuff);
 		mask->maskBuff = 0;
 		mask->maskScan = 0;
 		mask->width = 0;
@@ -273,6 +261,7 @@ void TPspiCore::releaseMask(SpspiMask *mask)
 		mask->maskStride = 0;
 		}
 }
+*/
 //-----------------------------------------------------------------
 bool TPspiCore::loadPIPLResources(HINSTANCE DLL_Handle)
 {
@@ -508,8 +497,8 @@ void  TPspiCore::prepareSuites(void)
 //---------------------------------------------------------------------------
 void  TPspiCore::prepareFilter(void)
 {
- int mask_size;
  unsigned int serNumber = 12345;
+ bool hasAlphaChannel = (hRecordPtr->srcImage->channels > 3) || (hRecordPtr->srcImage->alphaChans > 0);
  int FData = 0;
  BYTE f_color[3], b_color[3];
 
@@ -580,18 +569,18 @@ void  TPspiCore::prepareFilter(void)
  //fRecord.maskData = NULL;
  //fRecord.isFloating = false;
  //fRecord.autoMask = false; 
-  if (hRecordPtr->srcMask == 0)
+  //
+  //TODO: check GFilterSupCases[7] to see what kind of filter cases plug-in supports
+  //
+  if (hRecordPtr->mask == 0 || !(hRecordPtr->useMaskByPi))
     {
-    fRecord.haveMask = false;
-	fRecord.filterCase = filterCaseFlatImageNoSelection;
-    fRecord.maskData = NULL;
+		fRecord.haveMask = false;
+		fRecord.filterCase = hasAlphaChannel ? filterCaseEditableTransparencyNoSelection : filterCaseFlatImageNoSelection ;
 	}
  else
     {
-    fRecord.haveMask = true;
-    fRecord.filterCase = filterCaseFlatImageWithSelection;
-    mask_size =  hRecordPtr->srcMask->height * hRecordPtr->srcMask->width; // test
-    fRecord.maskData = NULL;
+		fRecord.haveMask = true;
+	    fRecord.filterCase = hasAlphaChannel ? filterCaseEditableTransparencyWithSelection : filterCaseFlatImageWithSelection;
     }
 // test
  //fRecord.filterCase = filterCaseEditableTransparencyNoSelection;
@@ -745,7 +734,7 @@ void * TPspiCore::resizeBuffer(void *data, int &rowBytes, Rect rect, int loPlane
 // step calculator for crap resize
 //
 //---------------------------------------------------------------------------
-int TPspiCore::resizeImage(SpspiImage *src, float sampleRate, int rectW, int rectH)
+int TPspiCore::resizeImage(SpspiImage *src, SpspiImage *res, float sampleRate, int rectW, int rectH)
 {
 	float fract_part, int_part;
 	int step = 1;
@@ -767,44 +756,44 @@ int TPspiCore::resizeImage(SpspiImage *src, float sampleRate, int rectW, int rec
 		scaleWidth = rectW;
 	if (rectH > scaleHeight)
 		scaleHeight = rectH;
-	if (ResImage.imageBuff == 0 || scaleWidth != ResImage.width || scaleHeight != ResImage.height)
+	if (res->imageBuff == 0 || scaleWidth != res->width || scaleHeight != res->height)
 	{
-		if (ResImage.imageBuff)
-			releaseImage(&ResImage, true);
+		if (res->imageBuff)
+			releaseImage(res, true);
 		// create resample image
-		ResImage.width = scaleWidth;
-		ResImage.height = scaleHeight;
-		ResImage.channels  = src->channels;
-		ResImage.alphaChans = src->alphaChans;
-		ResImage.imageStride = src->channels * scaleWidth;
-		ResImage.alphaStride = src->alphaChans *scaleWidth;
-		ResImage.imageBuff = malloc(scaleHeight * ResImage.imageStride);
-		ResImage.imageScan = new LPBYTE[scaleHeight];
+		res->width = scaleWidth;
+		res->height = scaleHeight;
+		res->channels  = src->channels;
+		res->alphaChans = src->alphaChans;
+		res->imageStride = src->channels * scaleWidth;
+		res->alphaStride = src->alphaChans *scaleWidth;
+		res->imageBuff = malloc(scaleHeight * res->imageStride);
+		res->imageScan = new LPBYTE[scaleHeight];
 		// fill res image scanlines
-		LPBYTE ptr = (LPBYTE)ResImage.imageBuff;
+		LPBYTE ptr = (LPBYTE)res->imageBuff;
 		for (int i = 0; i < scaleHeight; i++)
 		{
-			ResImage.imageScan[i] = ptr;
-			memset(ResImage.imageScan[i], 0, ResImage.imageStride);
-			ptr = ptr + ResImage.imageStride;
+			res->imageScan[i] = ptr;
+			memset(res->imageScan[i], 0, res->imageStride);
+			ptr = ptr + res->imageStride;
 		}
 		// image has separated alpha channel - create res alpha
 		if (src->alphaBuff)
 		{
-			ResImage.alphaBuff = malloc(scaleHeight * ResImage.alphaStride);
-			ResImage.alphaScan = new LPBYTE[scaleHeight];	
-			ptr = (LPBYTE)ResImage.alphaBuff;
+			res->alphaBuff = malloc(scaleHeight * res->alphaStride);
+			res->alphaScan = new LPBYTE[scaleHeight];	
+			ptr = (LPBYTE)res->alphaBuff;
 			for (int i = 0; i < scaleHeight; i++)
 			{
-				ResImage.alphaScan[i] = ptr;
-				memset(ResImage.alphaScan[i], 0, ResImage.alphaStride);
-				ptr = ptr + ResImage.alphaStride;
+				res->alphaScan[i] = ptr;
+				memset(res->alphaScan[i], 0, res->alphaStride);
+				ptr = ptr + res->alphaStride;
 			}
 		}
 		else
 		{
-			ResImage.alphaScan = 0;
-			ResImage.alphaStride = 0;
+			res->alphaScan = 0;
+			res->alphaStride = 0;
 		}
 	}
 	// calculate crap resample step
@@ -812,28 +801,28 @@ int TPspiCore::resizeImage(SpspiImage *src, float sampleRate, int rectW, int rec
 	int step_x = src->height / scaleHeight;
 	// perform crap resampler	
 	LPBYTE src_ip, src_ap = 0, dst_ip = 0, dst_ap = 0;
-	for (int i = 0; i < ResImage.height; i++)
+	for (int i = 0; i < res->height; i++)
 	{
 		if ((i * step_y) >= src->height)
 			break;
 		src_ip = src->imageScan[i * step_y];
-		dst_ip = ResImage.imageScan[i];
+		dst_ip = res->imageScan[i];
 		if (src->alphaBuff)
 		{
 			src_ap = src->alphaScan[i * step_y];
-			dst_ap = ResImage.alphaScan[i];
+			dst_ap = res->alphaScan[i];
 		}
-		for (int j = 0; j < ResImage.width; j++)
+		for (int j = 0; j < res->width; j++)
 		{
 			if ((j *step_x) >= src->width)
 				break;
-			memcpy(dst_ip, src_ip, ResImage.channels);
-			dst_ip += ResImage.channels;
+			memcpy(dst_ip, src_ip, res->channels);
+			dst_ip += res->channels;
 			src_ip += src->channels * step_x;
 			if (src->alphaBuff)
 			{
 				dst_ap[0] = src_ap[0];
-				dst_ap += ResImage.alphaChans;
+				dst_ap += res->alphaChans;
 				src_ap += src->alphaChans * step_x;
 			}
 		}
@@ -845,7 +834,7 @@ int TPspiCore::resizeImage(SpspiImage *src, float sampleRate, int rectW, int rec
 // image to buffer
 //
 //---------------------------------------------------------------------------
-bool TPspiCore::image2Buffer(SpspiImage *image, void *data, Rect plugRect, int rowBytes, int loPlane, int hiPlane)
+bool TPspiCore::image2Buffer(SpspiImage *image, void *data, Rect plugRect, int rowBytes, int loPlane, int hiPlane, SpspiImage *res, float sampleRate)
 {  
 	if ((plugRect.right <= 0) || (plugRect.bottom <= 0))
 		return false;
@@ -862,16 +851,15 @@ bool TPspiCore::image2Buffer(SpspiImage *image, void *data, Rect plugRect, int r
 	int step = 1;
 	LPBYTE *imageScan = image->imageScan;
 	LPBYTE *alphaScan = image->alphaScan;
-	float sample_rate = Fixed2Float(fRecord.inputRate);
-	if (fRecord.inData == data)
+	if (res)
 	{
-		step = resizeImage(image, Fixed2Float(fRecord.inputRate), w, h);
+		step = resizeImage(image,  res, sampleRate, w, h);
 		if (step > 1)
 		{
-			imageScan = ResImage.imageScan;
-			alphaScan = ResImage.alphaScan;
-			srw = ResImage.width;
-			srh = ResImage.height;
+			imageScan = res->imageScan;
+			alphaScan = res->alphaScan;
+			srw = res->width;
+			srh = res->height;
 		}
 	}
 	int top, left, bottom, right;
@@ -988,19 +976,19 @@ void TPspiCore::dst2Src(void)
 	int aStride = (right - left) * hRecordPtr->srcImage->alphaChans;
 	bool alphaScan = hRecordPtr->srcImage->alphaScan;
 	LPBYTE src_ptr, dst_ptr, mask_ptr, src_alpha = 0, dst_alpha = 0;
-	if (SrcMask.width > 0 && !SrcMask.useByPi)	// there is a mask and it's not used by pi
+	if (SrcMask.width > 0)			// here is a mask - blend the result
 	{
 		for (int i = top; i < bottom; i++)
 		{
 			src_ptr  = hRecordPtr->srcImage->imageScan[i] + left * hRecordPtr->srcImage->channels;
 			dst_ptr  = hRecordPtr->dstImage->imageScan[i] + left * hRecordPtr->dstImage->channels;
-			mask_ptr = hRecordPtr->srcMask->maskScan[i] + left;
+			mask_ptr = SrcMask.imageScan[i] + left;
 			if (alphaScan)
 			{
 				src_alpha = hRecordPtr->srcImage->alphaScan[i] + left;
 				dst_alpha = hRecordPtr->dstImage->alphaScan[i] + left;
 			}
-			for (int j = left; j < right; i++)
+			for (int j = left; j < right; j++)
 			{
 				if (*mask_ptr > 0x00)	// there is something in the mask
 				// blend using mask
@@ -1013,6 +1001,7 @@ void TPspiCore::dst2Src(void)
 				}
 				src_ptr += hRecordPtr->srcImage->channels;
 				dst_ptr += hRecordPtr->dstImage->channels;
+				mask_ptr += SrcMask.channels;
 			}
 			// what about external alpha, shell we blend it? Not for now...just copy
 			if (alphaScan)
@@ -1042,22 +1031,42 @@ void TPspiCore::dst2Src(void)
 void TPspiCore::ProcessAdvanceState(void)
 {
 	buffer2Image(hRecordPtr->dstImage, fRecord.outData, aState.lastOutRect, aState.lastOutRowBytes, aState.lastOutLoPlane, aState.lastOutHiPlane);
-	// resize input buffer
-	fRecord.inData = resizeBuffer(fRecord.inData, fRecord.inRowBytes, fRecord.inRect, fRecord.inLoPlane, fRecord.inHiPlane, aState.inSize);
-	// copy src to input buffer
-	if (aState.inSize > 0)
-		aState.inBuffOK = image2Buffer(hRecordPtr->srcImage, fRecord.inData, fRecord.inRect, fRecord.inRowBytes, fRecord.inLoPlane, fRecord.inHiPlane);
-	// check lastOutRect
-	if (!(aState.lastOutRect.left == fRecord.outRect.left
-		&& aState.lastOutRect.right == fRecord.outRect.right
-		&& aState.lastOutRect.top == fRecord.outRect.top
-		&& aState.lastOutRect.bottom == fRecord.outRect.bottom))
+	// mask buffer
+	int sCord0 = chanOrder[0];
+	chanOrder[0] = 0;	// we're using the same method for mask, so if chanOrder[0] = 2 (BGR) we will write outside data block 
+	if (fRecord.haveMask)
+	{
+		if (!EqRects(&(aState.lastMaskRect), &(fRecord.maskRect)))
+		{
+			fRecord.maskData = resizeBuffer(fRecord.maskData, fRecord.maskRowBytes, fRecord.maskRect, 0, 0, aState.maskSize);
+			if (aState.maskSize > 0)
+				aState.maskBuffOK = image2Buffer(hRecordPtr->mask, fRecord.maskData, fRecord.maskRect, fRecord.maskRowBytes, 0, 0, &ResMask, Fixed2Float(fRecord.maskRate));
+		}
+	}
+	chanOrder[0] = sCord0;	// restore channel order 0
+	// input buffer
+	if (!EqRects(&(aState.lastInRect), &(fRecord.inRect)))
+	{
+		fRecord.inData = resizeBuffer(fRecord.inData, fRecord.inRowBytes, fRecord.inRect, fRecord.inLoPlane, fRecord.inHiPlane, aState.inSize);
+		// copy src to input buffer
+		if (aState.inSize > 0)
+			aState.inBuffOK = image2Buffer(hRecordPtr->srcImage, fRecord.inData, fRecord.inRect, fRecord.inRowBytes, fRecord.inLoPlane, fRecord.inHiPlane, &ResImage, Fixed2Float(fRecord.inputRate));
+	}	
+	// output buffer
+	if (!EqRects(&(aState.lastOutRect), &(fRecord.outRect)))
 	{
 		// resize output buffer
 		fRecord.outData = resizeBuffer(fRecord.outData, fRecord.outRowBytes, fRecord.outRect, fRecord.outLoPlane, fRecord.outHiPlane, aState.outSize);
 		// copy tgt to output buffer
 		if (aState.outSize)
 			aState.outBuffOK = image2Buffer(hRecordPtr->dstImage, fRecord.outData, fRecord.outRect, fRecord.outRowBytes, fRecord.outLoPlane, fRecord.outHiPlane);
+	}
+	if (!aState.maskBuffOK)
+	{
+		if (fRecord.maskData)
+			free(fRecord.maskData);
+		fRecord.maskData = 0;
+		aState.maskSize = 0;
 	}
 	if (!aState.inBuffOK)
 	{
@@ -1080,6 +1089,8 @@ void TPspiCore::ProcessAdvanceState(void)
 	else
 	{
 		// store previous out values
+		aState.lastInRect = fRecord.inRect;
+		aState.lastMaskRect = fRecord.maskRect;
 		aState.lastOutRect = fRecord.outRect;
 		aState.lastOutRowBytes = fRecord.outRowBytes;
 		aState.lastOutLoPlane = fRecord.outLoPlane;
@@ -1105,10 +1116,13 @@ int TPspiCore::SetPath(wchar_t *filterFolder)
 //-----------------------------------------------------------------
 void TPspiCore::ReleaseAllImages(void)
 {
+	// releae images
 	releaseImage(&SrcImage, false);	// shared
 	releaseImage(&DstImage, true);	// not-shared
-	releaseImage(&ResImage, true);
-	releaseMask(&SrcMask);
+	releaseImage(&ResImage, true);  // not shared
+	// release masks
+	releaseImage(&SrcMask, false);	// shaed
+	releaseImage(&ResMask, true);	// not-shared
 }
 //-----------------------------------------------------------------
 // set working image by buffer
@@ -1153,6 +1167,9 @@ int TPspiCore::SetImage(TImgType type, int width, int height, void *imageBuff, i
 	SrcImage.height = DstImage.height = height;
 	SrcImage.imageStride = DstImage.imageStride = imageStride;
 	SrcImage.alphaStride = DstImage.alphaStride = alphaStride;
+	// save buffer poiners
+	SrcImage.imageBuff = imageBuff;
+	SrcImage.alphaBuff = alphaBuff;
 	// fill source image scanlines
 	SrcImage.imageScan = new LPBYTE[height];
 	LPBYTE ptr = (LPBYTE)imageBuff;
@@ -1217,19 +1234,23 @@ int TPspiCore::SetImage(TImgType type, int width, int height, void *imageBuff, i
 //-----------------------------------------------------------------
 int TPspiCore::SetMask(int width, int height, void *maskBuff, int maskStride, bool useByPi)
 {
-	releaseMask(&SrcMask);
+	releaseImage(&SrcMask, false);
+	releaseImage(&ResMask, true);
 	SrcMask.width = width;
 	SrcMask.height = height;
-	SrcMask.maskStride = maskStride;
-	SrcMask.useByPi = useByPi;
+	SrcMask.imageStride = maskStride;
+	SrcMask.channels = 1;
+	// save buffer poiner
+	SrcImage.imageBuff = maskBuff;
 	// fill mask scanlines
-	SrcMask.maskScan = new LPBYTE[height];
+	SrcMask.imageScan = new LPBYTE[height];
 	LPBYTE ptr = (LPBYTE)maskBuff;
 	for (int i = 0; i < height; i++)
 	{
-		SrcMask.maskScan[i] = ptr;
+		SrcMask.imageScan[i] = ptr;
 		ptr = ptr + maskStride;
 	}
+	HostRecord.useMaskByPi = useByPi;
 	return 0;
 }
 //-----------------------------------------------------------------
@@ -1364,11 +1385,12 @@ int TPspiCore::StartMaskSL(int width, int height, bool useByPi)
 		return PSPIW_ERR_IMAGE_INVALID;
 	if (DstImage.width != width || DstImage.height != height)
 		return PSPIW_ERR_BAD_PARAM;
-	releaseMask(&SrcMask);
+	releaseImage(&SrcMask, false);
+	releaseImage(&ResMask, true);
 	SrcMask.width = width;
 	SrcMask.height = height;
-	SrcMask.useByPi = useByPi;
-	SrcMask.maskScan = new LPBYTE[height];
+	SrcMask.imageScan = new LPBYTE[height];
+	HostRecord.useMaskByPi = useByPi;
 	return 0;
 }
 //-----------------------------------------------------------------
@@ -1380,7 +1402,7 @@ int TPspiCore::AddMaskSL(int scanIndex, void *maskScanLine)
 		return PSPIW_ERR_IMAGE_INVALID;
 	if (scanIndex >= SrcMask.height)
 		return PSPIW_ERR_BAD_PARAM;
-	SrcMask.maskScan[scanIndex] = (LPBYTE)maskScanLine;
+	SrcMask.imageScan[scanIndex] = (LPBYTE)maskScanLine;
 	return 0;
 }
 //-----------------------------------------------------------------
@@ -1389,7 +1411,7 @@ int TPspiCore::AddMaskSL(int scanIndex, void *maskScanLine)
 int TPspiCore::FinishMaskSL(int maskStride)
 {
 	if (maskStride != 0)
-		SrcMask.maskStride = maskStride;
+		SrcMask.imageStride = maskStride;
 	return 0;
 }
 //-----------------------------------------------------------------
@@ -1497,10 +1519,10 @@ int TPspiCore::PlugInExecute(HWND hWnd)
 	HostRecord.srcImage = &SrcImage;
 	HostRecord.dstImage = &DstImage;
 	HostRecord.hWnd = hWnd;
-	if (SrcMask.width)
-		HostRecord.srcMask = &SrcMask;
+	if (SrcMask.width)	// for now use src so that we can test it
+		HostRecord.mask = &SrcMask;
 	else
-		HostRecord.srcMask = 0;
+		HostRecord.mask = 0;
 	if (!HostRecord.roiRect.IsEmpty())	// adjust roi if necessary
 	{
 		if (HostRecord.roiRect.bottom > HostRecord.srcImage->height)
@@ -1583,6 +1605,26 @@ int TPspiCore::PlugInEnumerate(ENUMCALLBACK enumFunc, bool recurseSubFolders)
 		return  PSPIW_ERR_WORK_PATH_EMPTY;
 	enumResourcesPath(HostRecord.piPath, enumFunc, recurseSubFolders);
 	return 0;
+}
+//---------------------------------------------------------------------------
+// inline members
+//---------------------------------------------------------------------------
+inline float TPspiCore::Fixed2Float(Fixed f_number)
+{
+if (f_number == 0)
+   return 0;
+else
+   {
+   int denom, number;
+   denom = f_number<<16;
+   number = f_number>>16;
+   return ((float)number + (float)denom/65536);
+   }
+}
+//---------------------------------------------------------------------------
+inline bool TPspiCore::EqRects(Rect *r1, Rect *r2)
+{
+	return ((r1->left == r2->left) && (r1->right == r2->right) && (r1->top == r2->top) && (r1->bottom == r2->bottom));
 }
 //---------------------------------------------------------------------------
 // Routine for fixed format conversion -static 
