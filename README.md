@@ -36,7 +36,7 @@ Currently not supported in host engine:
 - Adobe Photoshop SDK
 
 ### pspiHost APIs:
-- ```char* __stdcall pspiGetVersion(void);``` get current version (char of 3 charactes).
+- ```pspiGetVersion(void);``` get current version: returns pointer to 3 charactes describing pspiHost version (currently 0.5).
 - ```pspiSetPath(wchar_t *filterFolder);``` sets path to filters directory (usually some 8bf collection).
 - ```pspiSetRoi(int top = 0, int left = 0, int bottom = 0, int right = 0);``` sets ROI (region of interest) to be filtered (rectangle).
 - ```pspiSetImage(TImgType type, int width, int height, void *imageBuff, int imageStride, void *alphaBuff = 0, int alphaStride = 0);``` sets source image by passing contiguous image buffer pointer. If image has external alpha channel, pointer to alpha buffer can be passed as well. Also, you must pass image type, image width, height and image stride value and alpha stride value if alpha buffer is not-null.  
@@ -57,6 +57,8 @@ Currently not supported in host engine:
 
 ### Important notes
 Source image from your application (one that needs to be filtered) passed to pspiHost using pspiSetImage, or by pspiStartImageSL-pspiAddImageSL-pspiFinishImageSL block is shared (image buffer is shared). You must not delete this image in your application before executing plug-in. Otherwise, pspiHost will crash. The same stands for the source mask passed to pspiHost.
+
+Mask and ROI can be used in conjunction, the result is intersection of mask and ROI. 
 
 ## capPspi
 Console application for testing engine.
