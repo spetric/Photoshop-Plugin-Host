@@ -24,7 +24,6 @@ Currently supported image formats:
 Image can be passed to engine using single contiguous image buffer, or by adding scalines (for possibly non-contiguous image buffers). 
 
 Currently not supported in host engine:
-- masking (currently only for blending input and output)
 - padding
 - parameters saving/restoring
 - filters requiring SuitePea
@@ -40,7 +39,7 @@ Currently not supported in host engine:
 - ```pspiSetPath(wchar_t *filterFolder);``` sets path to filters directory (usually some 8bf collection).
 - ```pspiSetRoi(int top = 0, int left = 0, int bottom = 0, int right = 0);``` sets ROI (region of interest) to be filtered (rectangle).
 - ```pspiSetImage(TImgType type, int width, int height, void *imageBuff, int imageStride, void *alphaBuff = 0, int alphaStride = 0);``` sets source image by passing contiguous image buffer pointer. If image has external alpha channel, pointer to alpha buffer can be passed as well. Also, you must pass image type, image width, height and image stride value and alpha stride value if alpha buffer is not-null.  
-- ```pspiSetMask(int width, int height, void *maskBuff, int maskStride, bool useMaskByPi);``` sets 8-bit single channel grayscale mask. Contiguous buffer must be passed, as well as mask width, height (the same size as image), mask stride value and boolean value useMakByPi. This value tells if the mask will be used by plug-in (not yet implemented) or for post-blending filtered and source image (implemented). 
+- ```pspiSetMask(int width, int height, void *maskBuff, int maskStride, bool useMaskByPi);``` sets 8-bit single channel grayscale mask. Contiguous buffer must be passed, as well as mask width, height (the same size as image), mask stride value and boolean value useMakByPi. This value tells if the mask will be used by plug-in (if supported by plug-in) or only for blending filtered and source image. 
 - ```pspiStartImageSL(TImgType type, int width, int height, bool externalAlpha = false);``` prepares host image container for accepting source image scanlines. This option deals with images with non-contiguous memory or with images with unknown scanline alignement, so stride value can not be calculated.
 - ```pspiAddImageSL(void *imageScanLine, void *alphaScanLine = 0);``` adds one scanline at the time to host image container. This API must be called in a loop and y scanlines are usually added in bottom-up order (last scanline is added first).
 - ```pspiFinishImageSL(int imageStride = 0, int alphaStride = 0);``` finishes scanline addition and completely sets host image container. If values for stride are not passed, destination image is not aligned to source image scanline boundary. Destination image strides are callculated by pspiHost.
@@ -57,8 +56,6 @@ Currently not supported in host engine:
 
 ### Important notes
 Source image from your application (one that needs to be filtered) passed to pspiHost using pspiSetImage, or by pspiStartImageSL-pspiAddImageSL-pspiFinishImageSL block is shared (image buffer is shared). You must not delete this image in your application before executing plug-in. Otherwise, pspiHost will crash. The same stands for the source mask passed to pspiHost.
-
-Source mask, passed to pspiHost has values oposite to plug-in mask (destination mask). Value 255 means selected pixel and 0 means not selected pixel.
 
 ## capPspi
 Console application for testing engine.
