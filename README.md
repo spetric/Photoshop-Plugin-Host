@@ -36,8 +36,8 @@ Currently not supported in host engine:
 - Adobe Photoshop SDK
 
 ### pspiHost APIs:
-- ```pspiGetVersion(void);``` get current version: returns pointer to 3 charactes describing pspiHost version (currently 0.5).
-- ```pspiSetPath(wchar_t *filterFolder);``` sets path to filters directory (usually some 8bf collection).
+- ```pspiGetVersion(void);``` get current version: returns pointer to 3 charactes describing pspiHost version (currently 0.6).
+- ```pspiSetPath(const wchar_t *filterFolder);``` sets path to filters directory (usually some 8bf collection).
 - ```pspiSetRoi(int top = 0, int left = 0, int bottom = 0, int right = 0);``` sets ROI (region of interest) to be filtered (rectangle).
 - ```pspiSetImage(TImgType type, int width, int height, void *imageBuff, int imageStride, void *alphaBuff = 0, int alphaStride = 0);``` sets source image by passing contiguous image buffer pointer. If image has external alpha channel, pointer to alpha buffer can be passed as well. Also, you must pass image type, image width, height and image stride value and alpha stride value if alpha buffer is not-null.  
 - ```pspiSetMask(int width, int height, void *maskBuff, int maskStride, bool useMaskByPi = true);``` sets 8-bit single channel grayscale mask. Contiguous buffer must be passed, as well as mask width, height (the same size as image), mask stride value and boolean value useMakByPi. This value tells if the mask will be used by plug-in (if supported by plug-in) or only for blending filtered and source image. 
@@ -53,12 +53,15 @@ Currently not supported in host engine:
 - ```pspiPlugInLoad(wchar_t *filter);``` loads 8bf filter. This API must be called before filter execution.
 - ```pspiPlugInAbout(HWND hWnd = 0);``` displays about window of loaded plugin. It's recommanded to pass your application windows handle.
 - ```pspiPlugInExecute(HWND hWnd = 0);``` executes loaded plugin. It's recommanded to pass your application windows handle.
-- ```pspiPlugInEnumerate(ENUMCALLBACK enumFunc, bool recurseSubFolders = true);``` routine for enumerating plugins in directory previously set by ```pspiSetPath(wchar_t *filterFolder);```. Function definition: ```typedef void (__stdcall *ENUMCALLBACK)(const char *, const char *, const char *, const wchar_t *);```. Function paremeters are: filter category, filter name, filter entrypoint name and filter full path.
+- ```pspiPlugInEnumerate(ENUMCALLBACK enumFunc, bool recurseSubFolders = true);``` routine for enumerating plugins in directory previously set by ```pspiSetPath(const wchar_t *filterFolder);```. Function definition: ```typedef void (__stdcall *ENUMCALLBACK)(const char *, const char *, const char *, const wchar_t *);```. Function paremeters are: filter category, filter name, filter entrypoint name and filter full path.
 
 ### Important notes
 Source image from your application (one that needs to be filtered) passed to pspiHost using pspiSetImage, or by pspiStartImageSL-pspiAddImageSL-pspiFinishImageSL block is shared (image buffer is shared). You must not delete this image in your application before executing plug-in. Otherwise, pspiHost will crash. The same stands for the source mask passed to pspiHost.
 
 Mask and ROI can be used in conjunction, the result is intersection of mask and ROI. 
+
+Version 0.5: error when executing filters on images with alpha channel.
+Version 0.6: tested a bunch of filters on image types RGB, RGBA and RGB + external alpha channel. So far, so good... 
 
 ## capPspi
 Console application for testing engine.
