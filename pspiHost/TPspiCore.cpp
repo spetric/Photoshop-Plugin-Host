@@ -6,7 +6,8 @@
 #include "pspiSuites.hpp"
 namespace fsys = experimental::filesystem;
 static vector<string> GFilterData;
-static bool GFilterSupCases[7];
+static bool GFilterInputHandling[7];
+static bool GFilterOutputHandling[7];
 //static bool GDontCopySrc2Dst;
 //void *GThisPtr;
 //-----------------------------------------------------------------
@@ -196,7 +197,8 @@ BOOL CALLBACK spEnumPIPL(HINSTANCE module, LPCWSTR type, LPCWSTR name, LONG para
                       fici_ptr = (FilterCaseInfo *)prop->propertyData;
 					  for (int i = 0; i < 7; i++)
 					  {
-						  GFilterSupCases[i] = (fici_ptr[i].inputHandling > 0x00);
+						  GFilterInputHandling[i] = (fici_ptr[i].inputHandling > 0x00);
+						  GFilterOutputHandling[i] = (fici_ptr[i].outputHandling > 0x00);
 					  }
 					  // check flags1 (only for 0, should be the same for all...probably)
 					  //GDontCopySrc2Dst = fici_ptr[0].flags1 & PIFilterDontCopyToDestinationBit;
@@ -226,22 +228,22 @@ void TPspiCore::releaseImage(SpspiImage *img, bool dispose)
 	{
 		if (img->imageScan)
 			delete []img->imageScan;
-		if (img->alphaScan)
-			delete []img->alphaScan;
+		if (img->exaScan)
+			delete []img->exaScan;
 		if (img->imageBuff && dispose)
 			free(img->imageBuff);
-		if (img->alphaBuff && dispose)
-			free(img->alphaBuff);
+		if (img->exaBuff && dispose)
+			free(img->exaBuff);
 		img->imageScan = 0;
-		img->alphaScan = 0;
+		img->exaScan = 0;
 		img->imageBuff = 0;
-		img->alphaBuff = 0;
+		img->exaBuff = 0;
 		img->width = 0;
 		img->height = 0;
 		img->imageStride = 0;
-		img->alphaStride = 0;
+		img->exaStride = 0;
 		img->channels = 0;
-		img->alphaChans = 0;
+		img->exaChannels = 0;
 	}
 }
 //-----------------------------------------------------------------
@@ -497,207 +499,261 @@ void  TPspiCore::prepareSuites(void)
 //---------------------------------------------------------------------------
 void  TPspiCore::prepareFilter(void)
 {
- unsigned int serNumber = 12345;
- bool hasAlphaChannel = (hRecordPtr->srcImage->channels > 3) || (hRecordPtr->srcImage->alphaChans > 0);
- int FData = 0;
- BYTE f_color[3], b_color[3];
-
- f_color[chanOrder[0]]  = BYTE(((hRecordPtr->foregroundColor)<<8)>>24);
- f_color[chanOrder[1]]  = BYTE(((hRecordPtr->foregroundColor)<<16)>>24);
- f_color[chanOrder[2]]  = BYTE(((hRecordPtr->foregroundColor)<<24)>>24);
-
-
- b_color[chanOrder[0]]  = BYTE(((hRecordPtr->backgroundColor)<<8)>>24);
- b_color[chanOrder[1]]  = BYTE(((hRecordPtr->backgroundColor)<<16)>>24);
- b_color[chanOrder[2]]  = BYTE(((hRecordPtr->backgroundColor)<<24)>>24);
- //
- //******** FILTER RECORD *******
- memset(&fRecord, 0, sizeof(fRecord));
- //
- // fill up filter record    -  idemo po redu
- //
- fRecord.serialNumber = 0;               // Host's serial number, to allow copy protected plug-in modules.
- fRecord.abortProc = DoTestAbort;        // The plug-in module may call this no-argument...
- fRecord.progressProc = (ProgressProc)DoProgressProc;  // The plug-in module may call this two-argument...
- fRecord.parameters = NULL;              // A handle, initialized to NIL by Photoshop.
- // imageSize -> depreciated -> check BigDocumentStruct::imageSize32
- // size of complete image if selection is not floating
- fRecord.imageSize.v = hRecordPtr->srcImage->height;  // Size of image v
- fRecord.imageSize.h = hRecordPtr->srcImage->width;   // Size of image h
- fRecord.planes =  hRecordPtr->srcImage->channels + hRecordPtr->srcImage->alphaChans;    // planes   
- //--- filter rect
- if (!hRecordPtr->roiRect.IsEmpty())
-    {
-    fRecord.filterRect.top    = hRecordPtr->roiRect.top;      // Rectangle to filter top
-    fRecord.filterRect.left   = hRecordPtr->roiRect.left;     // Rectangle to filter left
-    fRecord.filterRect.bottom = hRecordPtr->roiRect.bottom;   // Rectangle to filter bottom
-    fRecord.filterRect.right  = hRecordPtr->roiRect.right;    // Rectangle to filter right
-    }
- else
-    {
-    fRecord.filterRect.top    = 0;                  // Rectangle to filter top
-    fRecord.filterRect.left   = 0;                  // Rectangle to filter left
-    fRecord.filterRect.bottom = hRecordPtr->srcImage->height;    // Rectangle to filter bottom
-    fRecord.filterRect.right = hRecordPtr->srcImage->width;      // Rectangle to filter right
-    }
- // current background - depreciated
- fRecord.background.red   = b_color[0];
- fRecord.background.green = b_color[1];
- fRecord.background.blue  = b_color[2];
- // current foreground - depreciated
- fRecord.foreground.red   = f_color[0];
- fRecord.foreground.green  = f_color[1];
- fRecord.foreground.blue   = f_color[2];
- //TODO: calculate available space
- //fRecord.maxSpace64 =  100000000;
- fRecord.maxSpace =   100000000;         // maximum total space???
- //fRecord.bufferSpace = fRecord.maxSpace;
- //fRecord.inRect = Rect();    
- //fRecord.inLoPlane = 0;
- //fRecord.inHiPlane = 2;
- //fRecord.outRect = Rect();
- //fRecord.floatCoord.h = 50;
- //fRecord.floatCoord.v = 50;
- //
- //
- //fRecord.outLoPlane = 0;
- //fRecord.outHiPlane = 2;
-  //fRecord.inData = NULL;  // pointer to input buffer
- //fRecord.inRowBytes = 0;  // inrow bytes
- //fRecord.outData = NULL;   // pointer to output buffer
- //fRecord.outRowBytes = 0;       
- //fRecord.maskData = NULL;
- //fRecord.isFloating = false;
- //fRecord.autoMask = false; 
-  //
-  //TODO: check GFilterSupCases[7] to see what kind of filter cases plug-in supports
-  //
-  if (hRecordPtr->mask == 0 || !(hRecordPtr->useMaskByPi))
-    {
-		fRecord.haveMask = false;
-		fRecord.filterCase = hasAlphaChannel ? filterCaseEditableTransparencyNoSelection : filterCaseFlatImageNoSelection ;
+	int filterInputCase;
+	bool skipAlpha;
+	BYTE f_color[3], b_color[3];
+	// set initial foreground color
+	f_color[chanOrder[0]] = BYTE(((hRecordPtr->foregroundColor) << 8) >> 24);
+	f_color[chanOrder[1]] = BYTE(((hRecordPtr->foregroundColor) << 16) >> 24);
+	f_color[chanOrder[2]] = BYTE(((hRecordPtr->foregroundColor) << 24) >> 24);
+	// set initial background color
+	b_color[chanOrder[0]] = BYTE(((hRecordPtr->backgroundColor) << 8) >> 24);
+	b_color[chanOrder[1]] = BYTE(((hRecordPtr->backgroundColor) << 16) >> 24);
+	b_color[chanOrder[2]] = BYTE(((hRecordPtr->backgroundColor) << 24) >> 24);
+	//-----------------------------------
+	// Nullify complete filter record
+	//-----------------------------------
+	memset(&fRecord, 0, sizeof(fRecord));
+	//-----------------------------------
+	// fill up filter record fields
+	//-----------------------------------
+	fRecord.serialNumber = 0;					        // Host's serial number, to allow copy protected plug-in modules.
+	memcpy((char *)&fRecord.hostSig, &cSig[0], 4);		// host signature - that's me
+	// size of complete image if selection is not floating
+	fRecord.imageSize.v = hRecordPtr->srcImage->height;	// Size of image v
+	fRecord.imageSize.h = hRecordPtr->srcImage->width;		// Size of image h
+	fRecord.planes = hRecordPtr->colorChannels + hRecordPtr->alphaChannels;    // planes   
+	// filter rect
+	if (!hRecordPtr->roiRect.IsEmpty())
+	{
+		fRecord.filterRect.top = hRecordPtr->roiRect.top;      // Rectangle to filter top
+		fRecord.filterRect.left = hRecordPtr->roiRect.left;     // Rectangle to filter left
+		fRecord.filterRect.bottom = hRecordPtr->roiRect.bottom;   // Rectangle to filter bottom
+		fRecord.filterRect.right = hRecordPtr->roiRect.right;    // Rectangle to filter right
 	}
- else
-    {
-		fRecord.haveMask = true;
-	    fRecord.filterCase = hasAlphaChannel ? filterCaseEditableTransparencyWithSelection : filterCaseFlatImageWithSelection;
-    }
-// test
- //fRecord.filterCase = filterCaseEditableTransparencyNoSelection;
- fRecord.backColor[0]  = b_color[0];
- fRecord.backColor[1]  = b_color[1];
- fRecord.backColor[2]  = b_color[2];
- fRecord.backColor[3]  = 0xff;
- fRecord.foreColor[0]  = f_color[0];
- fRecord.foreColor[1]  = f_color[1];
- fRecord.foreColor[2]  = f_color[2];
- fRecord.foreColor[3]  = 0xff;
- //fRecord.hostSig = 0x02020202;                   // host signature
- memcpy ((char *) &fRecord.hostSig, &cSig[0], 4);
- fRecord.hostProc =  DoHostProc;                  // host proc - ne treba ???
- fRecord.imageMode = plugInModeRGBColor;         // color mode
- fRecord.imageHRes = FixRatio(96, 1);            // pixels per inch
- fRecord.imageVRes = fRecord.imageHRes;
- //fRecord.floatCoord; 	   -  Top left coordinate of selection
- fRecord.wholeSize.v = hRecordPtr->srcImage->height;  //  Size of image selection is floating over
- fRecord.wholeSize.h = hRecordPtr->srcImage->width;   //  Size of image selection is floating over
- //fRecord.monitor;	   -  Information on current monitor
- fRecord.platformData = &pData;		// Platform specific information.
- fRecord.bufferProcs =  &bProcs;		// The host buffer procedures.
- fRecord.resourceProcs = &rProcs;       // The host plug-in resource procedures.
- fRecord.handleProcs =   &hProcs;  	    // Platform independent handle manipulation.
- fRecord.processEvent  = DoProcessEvent;     // Pass event to the application.
- fRecord.displayPixels = DoDisplayPixels;  // Display dithered pixels.
- //fRecord.supportsDummyChannels;     -  Does the host support dummy channels?
- //fRecord.supportsAlternateLayouts;    -  Does the host support alternate data layouts.
- fRecord.wantLayout = piLayoutTraditional;  // The layout to use for the data...
- //
- //
- //fRecord.filterCase = 0;			// Filter case.... definition moved to mask if block
- fRecord.dummyPlaneValue = -1;	    //  0..255 = fill value -1 = leave undefined...
- //fRecord.premiereHook;		       - A hook for Premiere...
- fRecord.advanceState = DoAdvanceState;	// Advance from start to continue...
- fRecord.supportsAbsolute = 1;	// Does the host support absolute plane indexing?
- fRecord.wantsAbsolute = false;	       // Does the plug-in want absolute plane indexing? (input only)
- fRecord.getPropertyObsolete = DoSuiteGetProperty;	 // Use the suite if available
- fRecord.cannotUndo = 0;		      // If set to TRUE, then undo will not be enabled for this command.
- fRecord.supportsPadding = false;	       // Does the host support requests outside the image area?
- fRecord.inputPadding  = plugInWantsErrorOnBoundsException;        // Instructions for padding the input.
- fRecord.outputPadding = plugInWantsErrorOnBoundsException;        // Instructions for padding the output.
- fRecord.maskPadding   = plugInWantsErrorOnBoundsException;		   // Padding instructions for the mask.
- fRecord.samplingSupport = true;     // Does the host support sampling the input and mask?
- //fRecord.reservedByte;		       - Alignment.
- fRecord.inputRate = FixRatio(1, 1);            // Input sample rate.
- fRecord.maskRate = FixRatio(1, 1);           // Mask sample rate.
- fRecord.colorServices = DoColorServices;          // Routine to access color services.
- fRecord.inLayerPlanes =  fRecord.planes;
- // for alpha channel
- fRecord.inTransparencyMask = hRecordPtr->srcImage->alphaChans;
- //fRecord.inLayerMasks = 1;
- //fRecord.inInvertedLayerMasks;
- //fRecord.inNonLayerPlanes;
- fRecord.outLayerPlanes = fRecord.inLayerPlanes;
- fRecord.outTransparencyMask = fRecord.inTransparencyMask;
- //fRecord.outLayerMasks = 1;
- //fRecord.outInvertedLayerMasks;
- //fRecord.outNonLayerPlanes;
- fRecord.absLayerPlanes = fRecord.inLayerPlanes;
- fRecord.absTransparencyMask = fRecord.inTransparencyMask;
- //fRecord.absLayerMasks = 1;
- //fRecord.absInvertedLayerMasks;
- //fRecord.absNonLayerPlanes;
- //fRecord.inPreDummyPlanes;	- Extra planes to allocate in the input.
- //fRecord.inPostDummyPlanes;
- //fRecord.outPreDummyPlanes;	- Extra planes to allocate in the output.
- //fRecord.outPostDummyPlanes;
- fRecord.inColumnBytes = fRecord.planes;         // Step between input columns.
- fRecord.inPlaneBytes = 1;		    // Step between input planes.
- fRecord.outColumnBytes = fRecord.planes;        // Step between output pcolumns.
- fRecord.outPlaneBytes =  1;		    // Step between input planes.
- //
- // **** New in 3.0.4. ****
- //
- fRecord.imageServicesProcs = NULL; //&iProcs; // Suite of image processing callbacks.
- fRecord.propertyProcs = &pProcs;        //Routines to query and set document and view properties...
- // tilling
- fRecord.inTileHeight = fRecord.imageSize.v;	
- fRecord.inTileWidth  = fRecord.imageSize.h;
- fRecord.inTileOrigin.h = 0;
- fRecord.inTileOrigin.v = 0;
- fRecord.absTileHeight = fRecord.inTileHeight;	
- fRecord.absTileWidth = fRecord.inTileWidth;
- fRecord.absTileOrigin;
- fRecord.outTileHeight = fRecord.inTileHeight;	
- fRecord.outTileWidth = fRecord.inTileWidth;
- fRecord.outTileOrigin.v = 0;
- fRecord.outTileOrigin.h = 0;
- fRecord.maskTileHeight = fRecord.inTileHeight;	// Tiling for the mask.
- fRecord.maskTileWidth = fRecord.inTileWidth;
- fRecord.maskTileOrigin.h = 0;
- fRecord.maskTileOrigin.v = 0;
- //
- // **** New in 4.0 ****
- //
- fRecord.descriptorParameters = &pDescriptorParameters;	// For recording and playback
- fRecord.errorString = &errString;       // For silent and errReportString
- fRecord.channelPortProcs = &cProcs;     // Suite for passing pixels through channel ports.
-  fRecord.documentInfo = NULL;	         // The document info for the document being filtered.
- //
- // **** New in 5.0 ****
- //
- //fRecord.sSPBasic = &bSuite;     	// SuitePea basic suite
- fRecord.plugInRef = NULL;       	// plugin reference used by SuitePea
- fRecord.depth = 8;                 // bit depth per channel (1,8,16)
- //
- // **** New in 6.0 ****
- //
- fRecord.iCCprofileData = NULL;		// Handle containing the ICC profile for the image. (NULL if none)
- fRecord.iCCprofileSize = 0;		// size of profile.
- //fRecord.canUseICCProfiles;	        // non-zero if the host can export ICC profiles...
- //
- // **** New in 8.0 ****
- //
- fRecord.bigDocumentData = 0; // &bigDoc; // not for now...
+	else
+	{
+		fRecord.filterRect.top = 0;                  // Rectangle to filter top
+		fRecord.filterRect.left = 0;                  // Rectangle to filter left
+		fRecord.filterRect.bottom = hRecordPtr->srcImage->height;    // Rectangle to filter bottom
+		fRecord.filterRect.right = hRecordPtr->srcImage->width;      // Rectangle to filter right
+	}
+	// current background 
+	fRecord.background.red = b_color[0];
+	fRecord.background.green = b_color[1];
+	fRecord.background.blue = b_color[2];
+	// current foreground 
+	fRecord.foreground.red = f_color[0];
+	fRecord.foreground.green = f_color[1];
+	fRecord.foreground.blue = f_color[2];
+	// back color
+	fRecord.backColor[0] = b_color[0];
+	fRecord.backColor[1] = b_color[1];
+	fRecord.backColor[2] = b_color[2];
+	fRecord.backColor[3] = 0xff;
+	// fore color
+	fRecord.foreColor[0] = f_color[0];
+	fRecord.foreColor[1] = f_color[1];
+	fRecord.foreColor[2] = f_color[2];
+	fRecord.foreColor[3] = 0xff;
+	//TODO: calculate available space
+    //fRecord.maxSpace64 =  100000000;
+	fRecord.maxSpace = 100000000;         // maximum total space???
+	//fRecord.bufferSpace = fRecord.maxSpace;
+	//fRecord.inRect = Rect();    
+	//fRecord.inLoPlane = 0;
+	//fRecord.inHiPlane = 2;
+	//fRecord.outRect = Rect();
+	//fRecord.floatCoord.h = 50;
+	//fRecord.floatCoord.v = 50;
+	//
+	//
+	//fRecord.outLoPlane = 0;
+	//fRecord.outHiPlane = 2;
+	 //fRecord.inData = NULL;  // pointer to input buffer
+	//fRecord.inRowBytes = 0;  // inrow bytes
+	//fRecord.outData = NULL;   // pointer to output buffer
+	//fRecord.outRowBytes = 0;       
+	//fRecord.maskData = NULL;
+	//fRecord.isFloating = false;
+	//fRecord.autoMask = false; 
+	//
+	// Shitty code...buf it will probably work
+	//
+	skipAlpha = false;
+	if (hRecordPtr->mask == 0 || !(hRecordPtr->useMaskByPi))
+	{
+		if (hRecordPtr->alphaChannels == 0)
+		{
+			filterInputCase = filterCaseFlatImageNoSelection;
+			skipAlpha = true;
+		}
+		else
+		{
+			filterInputCase = filterCaseEditableTransparencyNoSelection;
+			if (!GFilterInputHandling[filterInputCase])
+				filterInputCase = filterCaseProtectedTransparencyNoSelection;
+			if (!GFilterInputHandling[filterInputCase])
+			{
+				filterInputCase = filterCaseFlatImageNoSelection;
+				skipAlpha = true;
+			}
+		}
+		fRecord.haveMask = false;
+	}
+	else
+	{
+		if (hRecordPtr->alphaChannels == 0)
+		{
+			filterInputCase = filterCaseFlatImageWithSelection;
+			skipAlpha = true;
+		}
+		else
+		{
+			filterInputCase = filterCaseEditableTransparencyWithSelection;
+			if (!GFilterInputHandling[filterInputCase])
+				filterInputCase = filterCaseProtectedTransparencyWithSelection;
+			if (!GFilterInputHandling[filterInputCase])
+			{
+				filterInputCase = filterCaseFlatImageWithSelection;
+				skipAlpha = true;
+			}
+		}
+		if (!GFilterInputHandling[filterInputCase])
+		{
+			filterInputCase = filterCaseFlatImageNoSelection;  // go to lowest possible case
+			fRecord.haveMask = false;
+			skipAlpha = true;
+		}
+		else
+			fRecord.haveMask = true;
+	}
+	fRecord.filterCase = filterInputCase;
+	switch (hRecordPtr->imgType)
+	{
+		case PSPIW_IMT_GRAY:
+		case PSPIW_IMT_GRAYA:
+			fRecord.imageMode = plugInModeGrayScale;
+			fRecord.depth = 8;
+			break;
+		default:
+			fRecord.imageMode = plugInModeRGBColor;         // color mode
+			fRecord.depth = 8;
+			break;
+	}
+	//
+	// now let's set planes and layers stuff
+	//
+	if (skipAlpha)
+	{
+		fRecord.inLayerPlanes = 0;	
+		fRecord.inTransparencyMask = 0; 
+		fRecord.inNonLayerPlanes = hRecordPtr->colorChannels;
+		fRecord.outLayerPlanes = fRecord.inLayerPlanes;
+		fRecord.outTransparencyMask = fRecord.inTransparencyMask;
+		fRecord.outNonLayerPlanes = fRecord.inNonLayerPlanes;
+		fRecord.outColumnBytes = fRecord.inColumnBytes;
+		fRecord.absNonLayerPlanes = hRecordPtr->colorChannels + hRecordPtr->alphaChannels;
+		fRecord.planes = hRecordPtr->colorChannels;
+	}
+	else
+	{
+		fRecord.inLayerPlanes = hRecordPtr->colorChannels;
+		fRecord.inTransparencyMask = hRecordPtr->alphaChannels;
+		fRecord.inNonLayerPlanes = 0;
+		fRecord.absNonLayerPlanes = fRecord.inNonLayerPlanes;
+		fRecord.absTransparencyMask = fRecord.inTransparencyMask;
+		fRecord.absLayerMasks		= fRecord.inLayerMasks;
+		fRecord.absInvertedLayerMasks = fRecord.inInvertedLayerMasks;
+		fRecord.planes = hRecordPtr->colorChannels + hRecordPtr->alphaChannels;
+		if (filterInputCase == filterCaseProtectedTransparencyNoSelection || filterInputCase == filterCaseProtectedTransparencyWithSelection)
+		{
+			fRecord.planes = hRecordPtr->colorChannels;
+			fRecord.outLayerPlanes = 0;
+			fRecord.outTransparencyMask = 0;
+			fRecord.outNonLayerPlanes = hRecordPtr->colorChannels;
+			fRecord.outColumnBytes = hRecordPtr->colorChannels;
+		}
+		else
+		{
+			fRecord.outLayerPlanes = fRecord.inLayerPlanes;
+			fRecord.outTransparencyMask = fRecord.inTransparencyMask;
+			fRecord.outNonLayerPlanes = fRecord.inNonLayerPlanes;
+			fRecord.outColumnBytes = fRecord.inColumnBytes;
+		}
+	}
+	// rest of the stuff
+	fRecord.inPlaneBytes = 1;
+	fRecord.outPlaneBytes = 1;
+	// 
+	fRecord.imageHRes = FixRatio(96, 1);            // pixels per inch
+	fRecord.imageVRes = fRecord.imageHRes;
+	//fRecord.floatCoord; 	   -  Top left coordinate of selection
+	fRecord.wholeSize.v = hRecordPtr->srcImage->height;  //  Size of image selection is floating over
+	fRecord.wholeSize.h = hRecordPtr->srcImage->width;   //  Size of image selection is floating over
+	//fRecord.monitor;	   -  Information on current monitor
+	//
+	// suites and precesses
+	//
+	fRecord.hostProc = DoHostProc;		// host proc - ne treba ???
+	fRecord.platformData = &pData;		// Platform specific information.
+	fRecord.bufferProcs = &bProcs;		// The host buffer procedures.
+	fRecord.resourceProcs = &rProcs;       // The host plug-in resource procedures.
+	fRecord.handleProcs = &hProcs;  	    // Platform independent handle manipulation.
+	fRecord.propertyProcs = &pProcs;        //Routines to query and set document and view properties...
+	fRecord.processEvent = DoProcessEvent;     // Pass event to the application.
+	fRecord.displayPixels = DoDisplayPixels;  // Display dithered pixels.
+	fRecord.advanceState = DoAdvanceState;	// Advance from start to continue...
+	fRecord.getPropertyObsolete = DoSuiteGetProperty;	 // Use the suite if available
+	fRecord.colorServices = DoColorServices;  // Routine to access color services.
+	fRecord.descriptorParameters = &pDescriptorParameters;	// For recording and playback
+	fRecord.errorString = &errString;       // For silent and errReportString
+	fRecord.channelPortProcs = &cProcs;     // Suite for passing pixels through channel ports.
+	fRecord.imageServicesProcs = NULL; //&iProcs; // Suite of image processing callbacks.
+	fRecord.documentInfo = NULL;	         // The document info for the document being filtered.
+	fRecord.abortProc = DoTestAbort;        // The plug-in module may call this no-argument...
+	fRecord.progressProc = (ProgressProc)DoProgressProc;  // The plug-in module may call this two-argument...
+	fRecord.parameters = NULL;              // A handle, initialized to NIL by Photoshop.
+	//fRecord.sSPBasic = &bSuite;     	// SuitePea basic suite TODO
+	fRecord.plugInRef = NULL;       	// plugin reference used by SuitePea						
+	//fRecord.supportsDummyChannels;     -  Does the host support dummy channels?
+	//fRecord.supportsAlternateLayouts;    -  Does the host support alternate data layouts.
+	fRecord.wantLayout = piLayoutTraditional;  // The layout to use for the data...
+	//
+	//
+	fRecord.dummyPlaneValue = -1;			//  0..255 = fill value -1 = leave undefined...
+	//fRecord.premiereHook;				//  A hook for Premiere...nope!
+	fRecord.supportsAbsolute = 1;			// Does the host support absolute plane indexing?
+	fRecord.wantsAbsolute = false;			// Does the plug-in want absolute plane indexing? (input only)
+	fRecord.cannotUndo = false;			// If set to TRUE, then undo will not be enabled for this command.
+	fRecord.supportsPadding = false;	    // Does the host support requests outside the image area?
+	fRecord.inputPadding = plugInWantsErrorOnBoundsException;        // Instructions for padding the input.
+	fRecord.outputPadding = plugInWantsErrorOnBoundsException;        // Instructions for padding the output.
+	fRecord.maskPadding = plugInWantsErrorOnBoundsException;		   // Padding instructions for the mask.
+	fRecord.samplingSupport = true;     // Does the host support sampling the input and mask?
+	// fRecord.reservedByte;		       - Alignment.
+	fRecord.inputRate = FixRatio(1, 1);		// Input sample rate.
+	fRecord.maskRate = FixRatio(1, 1);			// Mask sample rate.
+	// tilling
+	fRecord.inTileHeight = fRecord.imageSize.v;
+	fRecord.inTileWidth = fRecord.imageSize.h;
+	fRecord.inTileOrigin.h = 0;
+	fRecord.inTileOrigin.v = 0;
+	fRecord.absTileHeight = fRecord.inTileHeight;
+	fRecord.absTileWidth = fRecord.inTileWidth;
+	fRecord.absTileOrigin;
+	fRecord.outTileHeight = fRecord.inTileHeight;
+	fRecord.outTileWidth = fRecord.inTileWidth;
+	fRecord.outTileOrigin.v = 0;
+	fRecord.outTileOrigin.h = 0;
+	fRecord.maskTileHeight = fRecord.inTileHeight;	// Tiling for the mask.
+	fRecord.maskTileWidth = fRecord.inTileWidth;
+	fRecord.maskTileOrigin.h = 0;
+	fRecord.maskTileOrigin.v = 0;
+	fRecord.iCCprofileData = NULL;		// Handle containing the ICC profile for the image. (NULL if none)
+	fRecord.iCCprofileSize = 0;		// size of profile.
+	//fRecord.canUseICCProfiles;	        // non-zero if the host can export ICC profiles...
+	fRecord.bigDocumentData = 0; // &bigDoc; // not for now...
  }
 //---------------------------------------------------------------------------
 // resize buffer 
@@ -764,9 +820,9 @@ int TPspiCore::resizeImage(SpspiImage *src, SpspiImage *res, float sampleRate, i
 		res->width = scaleWidth;
 		res->height = scaleHeight;
 		res->channels  = src->channels;
-		res->alphaChans = src->alphaChans;
+		res->exaChannels = src->exaChannels;
 		res->imageStride = src->channels * scaleWidth;
-		res->alphaStride = src->alphaChans *scaleWidth;
+		res->exaStride = src->exaChannels *scaleWidth;
 		res->imageBuff = malloc(scaleHeight * res->imageStride);
 		res->imageScan = new LPBYTE[scaleHeight];
 		// fill res image scanlines
@@ -778,22 +834,22 @@ int TPspiCore::resizeImage(SpspiImage *src, SpspiImage *res, float sampleRate, i
 			ptr = ptr + res->imageStride;
 		}
 		// image has separated alpha channel - create res alpha
-		if (src->alphaBuff)
+		if (src->exaBuff)
 		{
-			res->alphaBuff = malloc(scaleHeight * res->alphaStride);
-			res->alphaScan = new LPBYTE[scaleHeight];	
-			ptr = (LPBYTE)res->alphaBuff;
+			res->exaBuff = malloc(scaleHeight * res->exaStride);
+			res->exaScan = new LPBYTE[scaleHeight];	
+			ptr = (LPBYTE)res->exaBuff;
 			for (int i = 0; i < scaleHeight; i++)
 			{
-				res->alphaScan[i] = ptr;
-				memset(res->alphaScan[i], 0, res->alphaStride);
-				ptr = ptr + res->alphaStride;
+				res->exaScan[i] = ptr;
+				memset(res->exaScan[i], 0, res->exaStride);
+				ptr = ptr + res->exaStride;
 			}
 		}
 		else
 		{
-			res->alphaScan = 0;
-			res->alphaStride = 0;
+			res->exaScan = 0;
+			res->exaStride = 0;
 		}
 	}
 	// calculate crap resample step
@@ -807,10 +863,10 @@ int TPspiCore::resizeImage(SpspiImage *src, SpspiImage *res, float sampleRate, i
 			break;
 		src_ip = src->imageScan[i * step_y];
 		dst_ip = res->imageScan[i];
-		if (src->alphaBuff)
+		if (src->exaBuff)
 		{
-			src_ap = src->alphaScan[i * step_y];
-			dst_ap = res->alphaScan[i];
+			src_ap = src->exaScan[i * step_y];
+			dst_ap = res->exaScan[i];
 		}
 		for (int j = 0; j < res->width; j++)
 		{
@@ -819,11 +875,11 @@ int TPspiCore::resizeImage(SpspiImage *src, SpspiImage *res, float sampleRate, i
 			memcpy(dst_ip, src_ip, res->channels);
 			dst_ip += res->channels;
 			src_ip += src->channels * step_x;
-			if (src->alphaBuff)
+			if (src->exaBuff)
 			{
 				dst_ap[0] = src_ap[0];
-				dst_ap += res->alphaChans;
-				src_ap += src->alphaChans * step_x;
+				dst_ap += res->exaChannels;
+				src_ap += src->exaChannels * step_x;
 			}
 		}
 	}
@@ -850,14 +906,14 @@ bool TPspiCore::image2Buffer(SpspiImage *image, void *data, Rect plugRect, int r
 	int srh = image->height;
 	int step = 1;
 	LPBYTE *imageScan = image->imageScan;
-	LPBYTE *alphaScan = image->alphaScan;
+	LPBYTE *exaScan = image->exaScan;
 	if (res)
 	{
 		step = resizeImage(image,  res, sampleRate, w, h);
 		if (step > 1)
 		{
 			imageScan = res->imageScan;
-			alphaScan = res->alphaScan;
+			exaScan = res->exaScan;
 			srw = res->width;
 			srh = res->height;
 		}
@@ -868,17 +924,17 @@ bool TPspiCore::image2Buffer(SpspiImage *image, void *data, Rect plugRect, int r
 	bottom = min(rect.bottom, srh);
 	right =  min(rect.right, srw);
 	int nplanes = hiPlane - loPlane + 1;
-	int hip = (alphaScan != NULL) ? hiPlane - image->alphaChans : hiPlane;
-	LPBYTE src_ptr, plug_ptr, alpha_ptr = 0;
+	int hip = (exaScan != NULL) ? hiPlane - image->exaChannels : hiPlane;
+	LPBYTE src_ptr, plug_ptr, exa_ptr = 0;
 	plug_ptr = (LPBYTE)data;
 	for (int i = top; i < bottom; i++)
 	{
 		src_ptr = imageScan[i];
 		src_ptr = src_ptr + image->channels * left;
-		if (alphaScan)	// external alpha channel
+		if (exaScan)	// external alpha channel
 		{
-			alpha_ptr = alphaScan[i];
-			alpha_ptr = alpha_ptr + image->alphaChans * left;
+			exa_ptr = exaScan[i];
+			exa_ptr = exa_ptr + image->exaChannels * left;
 		}
 		for (int j = left; j < right; j++)
 		{
@@ -890,15 +946,14 @@ bool TPspiCore::image2Buffer(SpspiImage *image, void *data, Rect plugRect, int r
 				}
 			for (int k = 0; k < (hiPlane - hip); k++)
 				{
-				plug_ptr[chanOrder[plc]] = alpha_ptr[k];
+				plug_ptr[chanOrder[plc]] = exa_ptr[k];
 				plc++;
 				}
 			// move forward
-			plug_ptr  += nplanes;
-			src_ptr   += image->channels;
-			alpha_ptr += image->alphaChans;
+			plug_ptr += nplanes;
+			src_ptr  += image->channels;
+			exa_ptr  += image->exaChannels;
 		}
-	//plug_ptr = (LPBYTE)data + rowBytes;
 	}
 	return true;
 }
@@ -927,20 +982,20 @@ bool TPspiCore::buffer2Image(SpspiImage *image, void *data, Rect plugRect,  int 
 	bottom = min(rect.bottom, srh);
 	right =  min(rect.right, srw);
 	int nplanes = hiPlane - loPlane + 1;
-	LPBYTE plug_ptr, src_ptr, alpha_ptr = 0;
+	LPBYTE plug_ptr, src_ptr, exa_ptr = 0;
 	LPBYTE *imageScan = image->imageScan;
-	LPBYTE *alphaScan = image->alphaScan;
-	int hip = (alphaScan != NULL) ? hiPlane - image->alphaChans : hiPlane;
+	LPBYTE *exaScan = image->exaScan;
+	int hip = (exaScan != NULL) ? hiPlane - image->exaChannels : hiPlane;
 	// copy buff to image
 	plug_ptr = (LPBYTE)data;
 	for (int i = top; i < bottom; i++)
 	{
 		src_ptr = imageScan[i];
 		src_ptr = src_ptr + image->channels * left;
-		if (alphaScan)	// external alpha channel
+		if (exaScan)	// external alpha channel
 		{
-			alpha_ptr = alphaScan[i];
-			alpha_ptr = alpha_ptr + image->alphaChans * left;
+			exa_ptr = exaScan[i];
+			exa_ptr = exa_ptr + image->exaChannels * left;
 		}
 		for (int j = left; j < right; j++)
 		{
@@ -952,13 +1007,13 @@ bool TPspiCore::buffer2Image(SpspiImage *image, void *data, Rect plugRect,  int 
 				}
 			for (int k = 0; k < (hiPlane - hip); k++)
 				{
-				alpha_ptr[k] = plug_ptr[chanOrder[plc]];
+				exa_ptr[k] = plug_ptr[chanOrder[plc]];
 				plc++;
 				}
 			// move forward
 			plug_ptr  += nplanes;
 			src_ptr   += image->channels;
-			alpha_ptr += image->alphaChans;
+			exa_ptr += image->exaChannels;
 		}
 	}
 	return true;
@@ -973,8 +1028,8 @@ void TPspiCore::dst2Src(void)
 	int left = fRecord.filterRect.left;
 	int right = fRecord.filterRect.right;
 	int iStride = (right - left) * hRecordPtr->srcImage->channels;
-	int aStride = (right - left) * hRecordPtr->srcImage->alphaChans;
-	bool alphaScan = hRecordPtr->srcImage->alphaScan;
+	int exaStride = (right - left) * hRecordPtr->srcImage->exaChannels;
+	bool exaScan = hRecordPtr->srcImage->exaScan;
 	LPBYTE src_ptr, dst_ptr, mask_ptr, src_alpha = 0, dst_alpha = 0;
 	if (SrcMask.width > 0)			// here is a mask - blend the result
 	{
@@ -983,10 +1038,10 @@ void TPspiCore::dst2Src(void)
 			src_ptr  = hRecordPtr->srcImage->imageScan[i] + left * hRecordPtr->srcImage->channels;
 			dst_ptr  = hRecordPtr->dstImage->imageScan[i] + left * hRecordPtr->dstImage->channels;
 			mask_ptr = SrcMask.imageScan[i] + left;
-			if (alphaScan)
+			if (exaScan)
 			{
-				src_alpha = hRecordPtr->srcImage->alphaScan[i] + left;
-				dst_alpha = hRecordPtr->dstImage->alphaScan[i] + left;
+				src_alpha = hRecordPtr->srcImage->exaScan[i] + left;
+				dst_alpha = hRecordPtr->dstImage->exaScan[i] + left;
 			}
 			for (int j = left; j < right; j++)
 			{
@@ -1004,8 +1059,8 @@ void TPspiCore::dst2Src(void)
 				mask_ptr += SrcMask.channels;
 			}
 			// what about external alpha, shell we blend it? Not for now...just copy
-			if (alphaScan)
-				memcpy(src_alpha, dst_alpha, aStride);
+			if (exaScan)
+				memcpy(src_alpha, dst_alpha, exaStride);
 		}
 	}
 	else
@@ -1014,14 +1069,14 @@ void TPspiCore::dst2Src(void)
 		{
 			src_ptr  = hRecordPtr->srcImage->imageScan[i] + left * hRecordPtr->srcImage->channels;
 			dst_ptr  = hRecordPtr->dstImage->imageScan[i] + left * hRecordPtr->dstImage->channels;
-			if (alphaScan)
+			if (exaScan)
 			{
-				src_alpha = hRecordPtr->srcImage->alphaScan[i] + left;
-				dst_alpha = hRecordPtr->dstImage->alphaScan[i] + left;
+				src_alpha = hRecordPtr->srcImage->exaScan[i] + left;
+				dst_alpha = hRecordPtr->dstImage->exaScan[i] + left;
 			}
 			memcpy(src_ptr, dst_ptr, iStride);	
-			if (alphaScan)
-				memcpy(src_alpha, dst_alpha, aStride);
+			if (exaScan)
+				memcpy(src_alpha, dst_alpha, exaStride);
 		}
 	}
 }
@@ -1102,7 +1157,7 @@ void TPspiCore::ProcessAdvanceState(void)
 //-----------------------------------------------------------------
 // set path
 //-----------------------------------------------------------------
-int TPspiCore::SetPath(wchar_t *filterFolder)
+int TPspiCore::SetPath(const wchar_t *filterFolder)
 {
 	if (HostRecord.initialEnvPath.empty())
 		return PSPIW_ERR_INIT_PATH_EMPTY;
@@ -1131,44 +1186,52 @@ int TPspiCore::SetImage(TImgType type, int width, int height, void *imageBuff, i
 	ReleaseAllImages();
 	for (int i = 0; i < maxChans; i++)		// max channels == 5 (RGBA + external alpha channel)...for simplicity only.
 		chanOrder[i] = i;
+	// set external alpha channels to zero
+	SrcImage.exaChannels = DstImage.exaChannels = 0;
 	switch (type)
 	{
 		case PSPIW_IMT_BGR:
 			SrcImage.channels = DstImage.channels = 3;
-			SrcImage.alphaChans = DstImage.alphaChans = 0;
 			chanOrder[0] = 2;
 			chanOrder[2] = 0;
+			HostRecord.colorChannels = 3;
+			HostRecord.alphaChannels = 0;
 			break;
 		case PSPIW_IMT_BGRA:
 			SrcImage.channels = DstImage.channels = 4;
-			SrcImage.alphaChans = DstImage.alphaChans = 0;
 			chanOrder[0] = 2;
 			chanOrder[2] = 0;
+			HostRecord.colorChannels = 3;
+			HostRecord.alphaChannels = 1;
 			break;
 		case PSPIW_IMT_RGB:
 			SrcImage.channels = DstImage.channels = 3;
-			SrcImage.alphaChans = DstImage.alphaChans = 0;
+			HostRecord.colorChannels = 3;
+			HostRecord.alphaChannels = 0;
 			break;
 		case PSPIW_IMT_RGBA:
 			SrcImage.channels = DstImage.channels = 4;
-			SrcImage.alphaChans = DstImage.alphaChans = 1;
+			HostRecord.colorChannels = 3;
+			HostRecord.alphaChannels = 1;
 			break;
 		case PSPIW_IMT_GRAYA:
 			SrcImage.channels = DstImage.channels = 2;
-			SrcImage.alphaChans = DstImage.alphaChans = 1;
+			HostRecord.colorChannels = 1;
+			HostRecord.alphaChannels = 1;
 			break;
 		default:
 			SrcImage.channels = DstImage.channels = 1;
-			SrcImage.alphaChans = DstImage.alphaChans = 0;
+			HostRecord.colorChannels = 1;
+			HostRecord.alphaChannels = 0;
 			break;
 	}
 	SrcImage.width = DstImage.width = width;
 	SrcImage.height = DstImage.height = height;
 	SrcImage.imageStride = DstImage.imageStride = imageStride;
-	SrcImage.alphaStride = DstImage.alphaStride = alphaStride;
+	SrcImage.exaStride = DstImage.exaStride = alphaStride;
 	// save buffer poiners
 	SrcImage.imageBuff = imageBuff;
-	SrcImage.alphaBuff = alphaBuff;
+	SrcImage.exaBuff = alphaBuff;
 	// fill source image scanlines
 	SrcImage.imageScan = new LPBYTE[height];
 	LPBYTE ptr = (LPBYTE)imageBuff;
@@ -1180,19 +1243,19 @@ int TPspiCore::SetImage(TImgType type, int width, int height, void *imageBuff, i
     // image has separated alpha channel
 	if (alphaBuff)
 	{
-		SrcImage.alphaChans++;  // increase alpha channels
-		SrcImage.alphaScan = new LPBYTE[height];
+		SrcImage.exaChannels++;			// increase external alpha channels
+		SrcImage.exaScan = new LPBYTE[height];
 		ptr = (LPBYTE)alphaBuff;
 		for (int i = 0; i < height; i++)
 		{
-			SrcImage.alphaScan[i] = ptr;
+			SrcImage.exaScan[i] = ptr;
 			ptr = ptr + alphaStride;
 		}
 	}
 	else
 	{
-		SrcImage.alphaScan = 0;
-		SrcImage.alphaStride = 0;
+		SrcImage.exaScan = 0;
+		SrcImage.exaStride = 0;
 	}
 	// create and set destination image - copy of source
 	DstImage.imageBuff = malloc(height * imageStride);
@@ -1208,24 +1271,27 @@ int TPspiCore::SetImage(TImgType type, int width, int height, void *imageBuff, i
     // image has separated alpha channel - copy to dest
 	if (alphaBuff)
 	{
-		DstImage.alphaChans++;	// increase alpha channels
-		DstImage.alphaBuff = malloc(height * alphaStride);
-		DstImage.alphaScan = new LPBYTE[height];	
-		ptr = (LPBYTE)DstImage.alphaBuff;
+		DstImage.exaChannels++;	// increase external alpha channels
+		DstImage.exaBuff = malloc(height * alphaStride);
+		DstImage.exaScan = new LPBYTE[height];	
+		ptr = (LPBYTE)DstImage.exaBuff;
 		for (int i = 0; i < height; i++)
 		{
-			DstImage.alphaScan[i] = ptr;
-			memcpy(DstImage.alphaScan[i], SrcImage.alphaScan[i], alphaStride);
+			DstImage.exaScan[i] = ptr;
+			memcpy(DstImage.exaScan[i], SrcImage.exaScan[i], alphaStride);
 			ptr = ptr + alphaStride;
 		}
 	}
 	else
 	{
-		DstImage.alphaScan = 0;
-		DstImage.alphaStride = 0;
+		DstImage.exaScan = 0;
+		DstImage.exaStride = 0;
 	}
 	// set suites static vars
-	SuitesDisplChans = SrcImage.channels + SrcImage.alphaChans;		// + external alpha if any
+	SuitesDisplChans = SrcImage.channels + SrcImage.exaChannels;		// + external alpha if any
+	// add external alpha channels to host record
+	HostRecord.alphaChannels += SrcImage.exaChannels;
+	HostRecord.imgType = type;
 	return 0;
 }
 //-----------------------------------------------------------------
@@ -1260,35 +1326,43 @@ int TPspiCore::StartImageSL(TImgType type, int width, int height, bool externalA
 	ReleaseAllImages();
 	for (int i = 0; i < maxChans; i++)		// max channels == 5 (RGBA + external alpha channel)...for simplicity only.
 		chanOrder[i] = i;
+	// set external alpha channels to zero
+	SrcImage.exaChannels = DstImage.exaChannels = 0;
 	switch (type)
 	{
 		case PSPIW_IMT_BGR:
 			SrcImage.channels = DstImage.channels = 3;
-			SrcImage.alphaChans = DstImage.alphaChans = 0;
 			chanOrder[0] = 2;
 			chanOrder[2] = 0;
+			HostRecord.colorChannels = 3;
+			HostRecord.alphaChannels = 0;
 			break;
 		case PSPIW_IMT_BGRA:
 			SrcImage.channels = DstImage.channels = 4;
-			SrcImage.alphaChans = DstImage.alphaChans = 0;
 			chanOrder[0] = 2;
 			chanOrder[2] = 0;
+			HostRecord.colorChannels = 3;
+			HostRecord.alphaChannels = 1;
 			break;
 		case PSPIW_IMT_RGB:
 			SrcImage.channels = DstImage.channels = 3;
-			SrcImage.alphaChans = DstImage.alphaChans = 0;
+			HostRecord.colorChannels = 3;
+			HostRecord.alphaChannels = 0;
 			break;
 		case PSPIW_IMT_RGBA:
 			SrcImage.channels = DstImage.channels = 4;
-			SrcImage.alphaChans = DstImage.alphaChans = 1;
+			HostRecord.colorChannels = 3;
+			HostRecord.alphaChannels = 1;
 			break;
 		case PSPIW_IMT_GRAYA:
 			SrcImage.channels = DstImage.channels = 2;
-			SrcImage.alphaChans = DstImage.alphaChans = 1;
+			HostRecord.colorChannels = 1;
+			HostRecord.alphaChannels = 1;
 			break;
 		default:
 			SrcImage.channels = DstImage.channels = 1;
-			SrcImage.alphaChans = DstImage.alphaChans = 0;
+			HostRecord.colorChannels = 1;
+			HostRecord.alphaChannels = 0;
 			break;
 	}
 	SrcImage.width = DstImage.width = width;
@@ -1299,18 +1373,23 @@ int TPspiCore::StartImageSL(TImgType type, int width, int height, bool externalA
     // image has separated alpha channel
 	if (externalAlpha)
 	{
-		SrcImage.alphaChans++;  // increase alpha channels
-		SrcImage.alphaScan = new LPBYTE[height];
-		DstImage.alphaChans++;
-		DstImage.alphaScan = new LPBYTE[height];
+		SrcImage.exaChannels++;  // increase alpha channels
+		SrcImage.exaScan = new LPBYTE[height];
+		DstImage.exaChannels++;
+		DstImage.exaScan = new LPBYTE[height];
 	}
 	else
 	{
-		SrcImage.alphaScan = 0;
-		SrcImage.alphaStride = 0;
-		DstImage.alphaScan = 0;
-		DstImage.alphaStride = 0;
+		SrcImage.exaScan = 0;
+		SrcImage.exaStride = 0;
+		DstImage.exaScan = 0;
+		DstImage.exaStride = 0;
 	}
+	// set suites static vars
+	SuitesDisplChans = SrcImage.channels + SrcImage.exaChannels;		// + external alpha if any
+	// add external alpha channels to host record
+	HostRecord.alphaChannels += SrcImage.exaChannels;
+	HostRecord.imgType = type;
 	return 0;
 }
 //-----------------------------------------------------------------
@@ -1322,11 +1401,11 @@ int TPspiCore:: AddImageSL(int scanIndex, void *imageScanLine,  void *alphaScanL
 		return PSPIW_ERR_IMAGE_INVALID;
 	if (scanIndex >= SrcImage.height)
 		return PSPIW_ERR_BAD_PARAM;
-	if (alphaScanLine && SrcImage.alphaScan == NULL)
+	if (alphaScanLine && SrcImage.exaScan == NULL)
 		return PSPIW_ERR_BAD_PARAM;
 	SrcImage.imageScan[scanIndex] = (LPBYTE)imageScanLine;
 	if (alphaScanLine)
-		SrcImage.alphaScan[scanIndex] = (LPBYTE)alphaScanLine;
+		SrcImage.exaScan[scanIndex] = (LPBYTE)alphaScanLine;
 	return 0;
 }
 //-----------------------------------------------------------------
@@ -1355,22 +1434,22 @@ int TPspiCore::FinishImageSL(int imageStride, int alphaStride)
 	}
 	if (alphaStride != 0)
 	{
-		SrcImage.alphaStride = alphaStride;
-		DstImage.alphaStride = alphaStride;
+		SrcImage.exaStride = alphaStride;
+		DstImage.exaStride = alphaStride;
 	}
 	else
 	{
-		DstImage.alphaStride = DstImage.width;	// only dest stride as we don't know src alignement
+		DstImage.exaStride = DstImage.width;	// only dest stride as we don't know src alignement
 	}
-	if (DstImage.alphaScan)
+	if (DstImage.exaScan)
 	{
-		DstImage.alphaBuff = malloc(DstImage.height * DstImage.alphaStride);
-		ptr = (LPBYTE)DstImage.alphaBuff;
+		DstImage.exaBuff = malloc(DstImage.height * DstImage.exaStride);
+		ptr = (LPBYTE)DstImage.exaBuff;
 		for (int i = 0; i < DstImage.height; i++)
 		{
-			DstImage.alphaScan[i] = ptr;
-			memcpy(DstImage.alphaScan[i], SrcImage.alphaScan[i], DstImage.alphaStride);
-			ptr = ptr + DstImage.alphaStride;
+			DstImage.exaScan[i] = ptr;
+			memcpy(DstImage.exaScan[i], SrcImage.exaScan[i], DstImage.exaStride);
+			ptr = ptr + DstImage.exaStride;
 		}
 	}
 	return 0;
@@ -1416,7 +1495,7 @@ int TPspiCore::FinishMaskSL(int maskStride)
 //-----------------------------------------------------------------
 // Load plugin
 //-----------------------------------------------------------------
-int TPspiCore::PlugInLoad(wchar_t *filter)
+int TPspiCore::PlugInLoad(const wchar_t *filter)
 {
 	HostRecord.filterPathName = filter;
 	HostRecord.filterLoaded = false;

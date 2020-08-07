@@ -69,7 +69,7 @@ class TPspiCore
 		~TPspiCore();
 		// methods 
 		void ProcessAdvanceState(void);
-		int SetPath(wchar_t *filterFolder);
+		int SetPath(const wchar_t *filterFolder);
 		void ReleaseAllImages(void);
 		int SetImage(TImgType type, int width, int height, void *imageBuff, int imageStride, void *alphaBuff, int alphaStride);
 		int SetMask(int width, int height, void *maskBuff, int maskStride, bool useByPi);
@@ -79,7 +79,7 @@ class TPspiCore
 		int StartMaskSL(int width, int height, bool useByPi);
 		int AddMaskSL(int scanIndex, void *maskScanLine);
 		int FinishMaskSL(int maskStride);
-		int PlugInLoad(wchar_t *filter);
+		int PlugInLoad(const wchar_t *filter);
 		int PlugInAbout(HWND hWnd);
 		int PlugInExecute(HWND hWnd);
 		int PlugInEnumerate(ENUMCALLBACK enumFunc, bool recurseSubFolders);

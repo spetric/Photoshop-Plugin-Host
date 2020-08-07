@@ -14,27 +14,27 @@ struct SpspiImage
 	int width;
 	int height;
 	int channels;
-	int alphaChans;
+	int exaChannels;		// external alpha channels
 	// image
 	void *imageBuff;
 	int imageStride;
 	LPBYTE *imageScan;
 	// alpha
-	void *alphaBuff;
-	int alphaStride;
-	LPBYTE *alphaScan;
+	void *exaBuff;
+	int exaStride;
+	LPBYTE *exaScan;
 	SpspiImage()
 	{
 		width = 0;
 		height = 0;
 		channels = 0;
-		alphaChans = 0;
+		exaChannels = 0;
 		imageBuff = 0;
 		imageStride = 0;
 		imageScan = 0;
-		alphaBuff = 0;
-		alphaStride = 0;
-		alphaScan = 0;
+		exaBuff = 0;
+		exaStride = 0;
+		exaScan = 0;
 	}
 };
 /*
@@ -103,6 +103,7 @@ struct SpspiHostRecord
 	SpspiImage *srcImage;
 	SpspiImage *dstImage;
 	SpspiImage  *mask;
+	TImgType imgType;
 	bool useMaskByPi;
 	HINSTANCE dllHandle;
 	std::wstring filterPathName;	// filter name (full path)  
@@ -117,11 +118,14 @@ struct SpspiHostRecord
 	std::wstring initialEnvPath;
 	std::wstring workingEnvPath;
 	std::wstring piPath;
+	int colorChannels;
+	int alphaChannels;
 	void Init()
 	{
 		srcImage = 0;
 		dstImage = 0;
 		mask = 0;
+		imgType = PSPIW_IMT_BGR;
 		useMaskByPi = false;
 		dllHandle = 0;
 		filterPathName = L"";
@@ -139,6 +143,8 @@ struct SpspiHostRecord
 		initialEnvPath = L"";
 		workingEnvPath = L"";
 		piPath = L"";
+		colorChannels = 0;
+		alphaChannels = 0;
 	}
 	SpspiHostRecord()
 	{

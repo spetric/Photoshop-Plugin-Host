@@ -3,19 +3,19 @@
 #include "TPspiCore.h"
 TPspiCore piCore;
 static int imgSclIndex, maskSclIndex;
-static char version[3];
+static char version[4];
 //-----------------------------------------------------------------
 // get version
 //-----------------------------------------------------------------
-char* __stdcall pspiGetVersion(void)
+const char* __stdcall pspiGetVersion(void)
 {  
-	memcpy(version, "0.5", 3);
+	memcpy(version, "0.6\0", 4);
 	return version;
 }
 //-----------------------------------------------------------------
 // set path
 //-----------------------------------------------------------------
-int __stdcall pspiSetPath(wchar_t *filterFolder)
+int __stdcall pspiSetPath(const wchar_t *filterFolder)
 {
 	return piCore.SetPath(filterFolder);
 }
@@ -119,7 +119,7 @@ int __stdcall pspiSetColorPickerCallBack(COLORPICKERCALLBACK colorPickerProc)
 //-----------------------------------------------------------------
 // Load plugin
 //-----------------------------------------------------------------
-int __stdcall pspiPlugInLoad(wchar_t *filter)
+int __stdcall pspiPlugInLoad(const wchar_t *filter)
 {
 	return piCore.PlugInLoad(filter);
 }

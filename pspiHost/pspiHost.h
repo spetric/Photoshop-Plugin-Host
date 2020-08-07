@@ -7,9 +7,9 @@
 #include <windows.h>
 #include "pspiGlobals.h"
 // get psipHost version
-extern "C" PSPI_API char* __stdcall pspiGetVersion(void);
+extern "C" PSPI_API const char* __stdcall pspiGetVersion(void);
 // set path
-extern "C" PSPI_API int __stdcall pspiSetPath(wchar_t *filterFolder);
+extern "C" PSPI_API int __stdcall pspiSetPath(const wchar_t *filterFolder);
 // set roi
 extern "C" PSPI_API int __stdcall pspiSetRoi(int top = 0, int left = 0, int bottom = 0, int right = 0);
 // set image using contiguous memory buffer pointer
@@ -34,7 +34,7 @@ extern "C" PSPI_API int __stdcall pspiReleaseAllImages(void);
 extern "C" PSPI_API int __stdcall pspiSetProgressCallBack(PROGRESSCALLBACK progressProc);
 extern "C" PSPI_API int __stdcall pspiSetColorPickerCallBack(COLORPICKERCALLBACK colorPickerProc);
 // plug-in related 
-extern "C" PSPI_API int __stdcall pspiPlugInLoad(wchar_t *filter);
+extern "C" PSPI_API int __stdcall pspiPlugInLoad(const wchar_t *filter);
 extern "C" PSPI_API int __stdcall pspiPlugInAbout(HWND hWnd = 0);
 extern "C" PSPI_API int __stdcall pspiPlugInExecute(HWND hWnd = 0);
 extern "C" PSPI_API int __stdcall pspiPlugInEnumerate(ENUMCALLBACK enumFunc, bool recurseSubFolders = true);
