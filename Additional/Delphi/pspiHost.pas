@@ -16,6 +16,8 @@ function pspiSetPath(filterFolder: Pointer): int stdcall;
 
 // set roi
 function pspiSetRoi(top: int = 0; left: int = 0; bottom: int = 0; right: int = 0): int  stdcall;
+// set image orientation
+function pspiSetImageOrientation(orientation: TImgOrientation) int stdcall;
 
 // set image using contiguous memory buffer pointer
 // note: source image is shared - do not destroy source image in your host program before plug-in is executed
@@ -55,6 +57,7 @@ implementation
 function pspiGetVersion(); external 'pspiHost.dll';
 function pspiSetPath(filterFolder: Pointer); external 'pspiHost.dll';
 function pspiSetRoi(top: int = 0; left: int = 0; bottom: int = 0; right: int = 0); external 'pspiHost.dll';
+function pspiSetImageOrientation(orientation: TImgOrientation) external 'pspiHost.dll';
 function pspiSetImage(imgtype: TImgType; width: int; height: int; imageBuff: Pointer; imageStride: int; alphaBuff: Pointer = nil; alphaStride: int = 0); external 'pspiHost.dll';
 function pspiSetMask(width: int; height: int; maskBuff: Pointer; maskStride: int;  useMaskByPi: Boolean = true); external 'pspiHost.dll';
 function pspiStartImageSL(imgtype: TImgType; width: int; height: int; externalAlpha: Boolean = false); external 'pspiHost.dll';
