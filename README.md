@@ -1,4 +1,4 @@
-# Photoshop-Plugin-Host
+# Photoshop Plugin Host
 Plugin host for 8bf Photoshop filters
 
 ## pspiHost.dll
