@@ -61,8 +61,9 @@ Source image from your application (one that needs to be filtered) passed to psp
 
 Mask and ROI can be used in conjunction, the result is intersection of mask and ROI. 
 
+### Development status
 Version 0.5: error when executing filters on images with alpha channel.  
-Version 0.6: tested a bunch of filters on image types RGB, RGBA and RGB + external alpha channel. There is one issue when calling pspiHost DLL from Embarcadero C++/Delphi: image in plug-in view is upside-down, because TBitmap scanlines are bottom-up oriented.
+Version 0.6: tested a bunch of filters on image types RGB, RGBA and RGB + external alpha channel. There is one issue when calling pspiHost DLL from Embarcadero C++/Delphi: image in plug-in view is upside-down, because TBitmap scanlines are bottom-up oriented.  
 Version 0.7: renamed constants and enums, added API for setting image orientation.
 
 ## capPspi
