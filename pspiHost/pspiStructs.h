@@ -104,6 +104,7 @@ struct SpspiHostRecord
 	SpspiImage *dstImage;
 	SpspiImage  *mask;
 	TImgType imgType;
+	TImgOrientation imgOrientation;
 	bool useMaskByPi;
 	HINSTANCE dllHandle;
 	std::wstring filterPathName;	// filter name (full path)  
@@ -125,7 +126,8 @@ struct SpspiHostRecord
 		srcImage = 0;
 		dstImage = 0;
 		mask = 0;
-		imgType = PSPIW_IMT_BGR;
+		imgType = PSPI_IMG_TYPE_BGR;
+		imgOrientation = PSPI_IMG_ORIENTATION_ASIS;
 		useMaskByPi = false;
 		dllHandle = 0;
 		filterPathName = L"";

@@ -66,11 +66,11 @@ int main(int argc, char *argv[])
 	//
 	TImgType type;
 	if (srcImage.channels() == 4)
-		type = PSPIW_IMT_BGRA;
+		type = PSPI_IMG_TYPE_BGRA;
 	else if (srcImage.channels() == 3)
-		type = PSPIW_IMT_BGR;
+		type = PSPIW_IMG_TYPE_BGR;
 	else if (srcImage.channels() == 1)
-		type = PSPIW_IMT_GRAY;
+		type = PSPIW_IMG_TYPE_GRAY;
 	pspiSetImage(type, srcImage.cols, srcImage.rows, (void*)srcImage.data, srcImage.step);	
 	/* test external alpha	if (srcImage.channels() == 4)
 	Mat bgra[4];

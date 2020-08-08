@@ -631,8 +631,8 @@ void  TPspiCore::prepareFilter(void)
 	fRecord.filterCase = filterInputCase;
 	switch (hRecordPtr->imgType)
 	{
-		case PSPIW_IMT_GRAY:
-		case PSPIW_IMT_GRAYA:
+		case PSPI_IMG_TYPE_GRAY:
+		case PSPI_IMG_TYPE_GRAYA:
 			fRecord.imageMode = plugInModeGrayScale;
 			fRecord.depth = 8;
 			break;
@@ -755,6 +755,33 @@ void  TPspiCore::prepareFilter(void)
 	//fRecord.canUseICCProfiles;	        // non-zero if the host can export ICC profiles...
 	fRecord.bigDocumentData = 0; // &bigDoc; // not for now...
  }
+//---------------------------------------------------------------------------
+// buffer to scanlines
+//---------------------------------------------------------------------------
+void TPspiCore::buffer2Scanlines(void * buffer, LPBYTE *scan, int height, int stride, LPBYTE *cpyScan)
+{
+	LPBYTE ptr = (LPBYTE)buffer;
+	if (HostRecord.imgOrientation == PSPI_IMG_ORIENTATION_ASIS)
+	{
+		for (int i = 0; i < height; i++)
+		{
+			scan[i] = ptr;
+			if (cpyScan != NULL)
+				memcpy(scan[i], cpyScan[i], stride);
+			ptr = ptr + stride;
+		}
+	}
+	else
+	{
+		for (int i = height - 1; i >= 0; i--)
+		{
+			scan[i] = ptr;
+			if (cpyScan != NULL)
+				memcpy(scan[i], cpyScan[i], stride);
+			ptr = ptr + stride;
+		}
+	}
+}
 //---------------------------------------------------------------------------
 // resize buffer 
 //---------------------------------------------------------------------------
@@ -1160,7 +1187,7 @@ void TPspiCore::ProcessAdvanceState(void)
 int TPspiCore::SetPath(const wchar_t *filterFolder)
 {
 	if (HostRecord.initialEnvPath.empty())
-		return PSPIW_ERR_INIT_PATH_EMPTY;
+		return PSPI_ERR_INIT_PATH_EMPTY;
 	HostRecord.workingEnvPath = HostRecord.initialEnvPath;
 	HostRecord.piPath = wstring(filterFolder);
 	HostRecord.workingEnvPath += L";" + HostRecord.piPath;
@@ -1188,42 +1215,46 @@ int TPspiCore::SetImage(TImgType type, int width, int height, void *imageBuff, i
 		chanOrder[i] = i;
 	// set external alpha channels to zero
 	SrcImage.exaChannels = DstImage.exaChannels = 0;
+	SrcImage.exaStride = DstImage.exaStride = 0;
+	SrcImage.exaScan = DstImage.exaScan = 0;
 	switch (type)
 	{
-		case PSPIW_IMT_BGR:
+		case PSPI_IMG_TYPE_BGR:
 			SrcImage.channels = DstImage.channels = 3;
 			chanOrder[0] = 2;
 			chanOrder[2] = 0;
 			HostRecord.colorChannels = 3;
 			HostRecord.alphaChannels = 0;
 			break;
-		case PSPIW_IMT_BGRA:
+		case PSPI_IMG_TYPE_BGRA:
 			SrcImage.channels = DstImage.channels = 4;
 			chanOrder[0] = 2;
 			chanOrder[2] = 0;
 			HostRecord.colorChannels = 3;
 			HostRecord.alphaChannels = 1;
 			break;
-		case PSPIW_IMT_RGB:
+		case PSPI_IMG_TYPE_RGB:
 			SrcImage.channels = DstImage.channels = 3;
 			HostRecord.colorChannels = 3;
 			HostRecord.alphaChannels = 0;
 			break;
-		case PSPIW_IMT_RGBA:
+		case PSPI_IMG_TYPE_RGBA:
 			SrcImage.channels = DstImage.channels = 4;
 			HostRecord.colorChannels = 3;
 			HostRecord.alphaChannels = 1;
 			break;
-		case PSPIW_IMT_GRAYA:
+		case PSPI_IMG_TYPE_GRAYA:
 			SrcImage.channels = DstImage.channels = 2;
 			HostRecord.colorChannels = 1;
 			HostRecord.alphaChannels = 1;
 			break;
-		default:
+		case PSPI_IMG_TYPE_GRAY:
 			SrcImage.channels = DstImage.channels = 1;
 			HostRecord.colorChannels = 1;
 			HostRecord.alphaChannels = 0;
 			break;
+		default:
+			return PSPI_ERR_BAD_IMAGE_TYPE;
 	}
 	SrcImage.width = DstImage.width = width;
 	SrcImage.height = DstImage.height = height;
@@ -1234,58 +1265,28 @@ int TPspiCore::SetImage(TImgType type, int width, int height, void *imageBuff, i
 	SrcImage.exaBuff = alphaBuff;
 	// fill source image scanlines
 	SrcImage.imageScan = new LPBYTE[height];
-	LPBYTE ptr = (LPBYTE)imageBuff;
-	for (int i = 0; i < height; i++)
-	{
-		SrcImage.imageScan[i] = ptr;
-		ptr = ptr + imageStride;
-	}
+	// fill image scanlines
+	buffer2Scanlines(imageBuff, SrcImage.imageScan, height, imageStride);
     // image has separated alpha channel
 	if (alphaBuff)
 	{
 		SrcImage.exaChannels++;			// increase external alpha channels
 		SrcImage.exaScan = new LPBYTE[height];
-		ptr = (LPBYTE)alphaBuff;
-		for (int i = 0; i < height; i++)
-		{
-			SrcImage.exaScan[i] = ptr;
-			ptr = ptr + alphaStride;
-		}
-	}
-	else
-	{
-		SrcImage.exaScan = 0;
-		SrcImage.exaStride = 0;
+		// fill alpha scanlines
+		buffer2Scanlines(alphaBuff, SrcImage.exaScan, height, alphaStride);
 	}
 	// create and set destination image - copy of source
 	DstImage.imageBuff = malloc(height * imageStride);
 	DstImage.imageScan = new LPBYTE[height];
 	// fill destination image scanlines
-	ptr = (LPBYTE)DstImage.imageBuff;
-	for (int i = 0; i < height; i++)
-	{
-		DstImage.imageScan[i] = ptr;
-		memcpy(DstImage.imageScan[i], SrcImage.imageScan[i], imageStride);
-		ptr = ptr + imageStride;
-	}
+	buffer2Scanlines(DstImage.imageBuff, DstImage.imageScan, height, imageStride, SrcImage.imageScan);
     // image has separated alpha channel - copy to dest
 	if (alphaBuff)
 	{
 		DstImage.exaChannels++;	// increase external alpha channels
 		DstImage.exaBuff = malloc(height * alphaStride);
 		DstImage.exaScan = new LPBYTE[height];	
-		ptr = (LPBYTE)DstImage.exaBuff;
-		for (int i = 0; i < height; i++)
-		{
-			DstImage.exaScan[i] = ptr;
-			memcpy(DstImage.exaScan[i], SrcImage.exaScan[i], alphaStride);
-			ptr = ptr + alphaStride;
-		}
-	}
-	else
-	{
-		DstImage.exaScan = 0;
-		DstImage.exaStride = 0;
+		buffer2Scanlines(DstImage.exaBuff, DstImage.exaScan, height, alphaStride, SrcImage.exaScan);	
 	}
 	// set suites static vars
 	SuitesDisplChans = SrcImage.channels + SrcImage.exaChannels;		// + external alpha if any
@@ -1309,12 +1310,7 @@ int TPspiCore::SetMask(int width, int height, void *maskBuff, int maskStride, bo
 	SrcImage.imageBuff = maskBuff;
 	// fill mask scanlines
 	SrcMask.imageScan = new LPBYTE[height];
-	LPBYTE ptr = (LPBYTE)maskBuff;
-	for (int i = 0; i < height; i++)
-	{
-		SrcMask.imageScan[i] = ptr;
-		ptr = ptr + maskStride;
-	}
+	buffer2Scanlines(SrcMask.imageBuff, SrcMask.imageScan, height, maskStride);	
 	HostRecord.useMaskByPi = useByPi;
 	return 0;
 }
@@ -1328,42 +1324,46 @@ int TPspiCore::StartImageSL(TImgType type, int width, int height, bool externalA
 		chanOrder[i] = i;
 	// set external alpha channels to zero
 	SrcImage.exaChannels = DstImage.exaChannels = 0;
+	SrcImage.exaScan = DstImage.exaScan = 0;
+	SrcImage.exaStride = DstImage.exaStride = 0;
 	switch (type)
 	{
-		case PSPIW_IMT_BGR:
+		case PSPI_IMG_TYPE_BGR:
 			SrcImage.channels = DstImage.channels = 3;
 			chanOrder[0] = 2;
 			chanOrder[2] = 0;
 			HostRecord.colorChannels = 3;
 			HostRecord.alphaChannels = 0;
 			break;
-		case PSPIW_IMT_BGRA:
+		case PSPI_IMG_TYPE_BGRA:
 			SrcImage.channels = DstImage.channels = 4;
 			chanOrder[0] = 2;
 			chanOrder[2] = 0;
 			HostRecord.colorChannels = 3;
 			HostRecord.alphaChannels = 1;
 			break;
-		case PSPIW_IMT_RGB:
+		case PSPI_IMG_TYPE_RGB:
 			SrcImage.channels = DstImage.channels = 3;
 			HostRecord.colorChannels = 3;
 			HostRecord.alphaChannels = 0;
 			break;
-		case PSPIW_IMT_RGBA:
+		case PSPI_IMG_TYPE_RGBA:
 			SrcImage.channels = DstImage.channels = 4;
 			HostRecord.colorChannels = 3;
 			HostRecord.alphaChannels = 1;
 			break;
-		case PSPIW_IMT_GRAYA:
+		case PSPI_IMG_TYPE_GRAYA:
 			SrcImage.channels = DstImage.channels = 2;
 			HostRecord.colorChannels = 1;
 			HostRecord.alphaChannels = 1;
 			break;
-		default:
+		case PSPI_IMG_TYPE_GRAY:
 			SrcImage.channels = DstImage.channels = 1;
 			HostRecord.colorChannels = 1;
 			HostRecord.alphaChannels = 0;
 			break;
+		default:
+			return PSPI_ERR_BAD_IMAGE_TYPE;
 	}
 	SrcImage.width = DstImage.width = width;
 	SrcImage.height = DstImage.height = height;
@@ -1380,10 +1380,6 @@ int TPspiCore::StartImageSL(TImgType type, int width, int height, bool externalA
 	}
 	else
 	{
-		SrcImage.exaScan = 0;
-		SrcImage.exaStride = 0;
-		DstImage.exaScan = 0;
-		DstImage.exaStride = 0;
 	}
 	// set suites static vars
 	SuitesDisplChans = SrcImage.channels + SrcImage.exaChannels;		// + external alpha if any
@@ -1398,11 +1394,11 @@ int TPspiCore::StartImageSL(TImgType type, int width, int height, bool externalA
 int TPspiCore:: AddImageSL(int scanIndex, void *imageScanLine,  void *alphaScanLine)
 {
 	if (SrcImage.width == 0)
-		return PSPIW_ERR_IMAGE_INVALID;
+		return PSPI_ERR_IMAGE_INVALID;
 	if (scanIndex >= SrcImage.height)
-		return PSPIW_ERR_BAD_PARAM;
+		return PSPI_ERR_BAD_PARAM;
 	if (alphaScanLine && SrcImage.exaScan == NULL)
-		return PSPIW_ERR_BAD_PARAM;
+		return PSPI_ERR_BAD_PARAM;
 	SrcImage.imageScan[scanIndex] = (LPBYTE)imageScanLine;
 	if (alphaScanLine)
 		SrcImage.exaScan[scanIndex] = (LPBYTE)alphaScanLine;
@@ -1414,9 +1410,9 @@ int TPspiCore:: AddImageSL(int scanIndex, void *imageScanLine,  void *alphaScanL
 int TPspiCore::FinishImageSL(int imageStride, int alphaStride)
 {
 	if (SrcImage.width == 0)
-		return PSPIW_ERR_IMAGE_INVALID;
+		return PSPI_ERR_IMAGE_INVALID;
 	if (DstImage.width == 0)
-		return PSPIW_ERR_IMAGE_INVALID;
+		return PSPI_ERR_IMAGE_INVALID;
 	if (imageStride != 0)
 	{
 		SrcImage.imageStride = imageStride;
@@ -1425,13 +1421,8 @@ int TPspiCore::FinishImageSL(int imageStride, int alphaStride)
 	else
 		DstImage.imageStride = DstImage.width * DstImage.channels;	// only dest stride as we don't know src alignement
 	DstImage.imageBuff = malloc(DstImage.height * DstImage.imageStride);
-	LPBYTE ptr = (LPBYTE)DstImage.imageBuff;
-	for (int i = 0; i < DstImage.height; i++)
-	{
-		DstImage.imageScan[i] = ptr;
-		memcpy(DstImage.imageScan[i], SrcImage.imageScan[i], DstImage.imageStride);
-		ptr = ptr + DstImage.imageStride;
-	}
+	// fill destination image scanlines
+	buffer2Scanlines(DstImage.imageBuff, DstImage.imageScan, DstImage.height, DstImage.imageStride, SrcImage.imageScan);
 	if (alphaStride != 0)
 	{
 		SrcImage.exaStride = alphaStride;
@@ -1444,13 +1435,7 @@ int TPspiCore::FinishImageSL(int imageStride, int alphaStride)
 	if (DstImage.exaScan)
 	{
 		DstImage.exaBuff = malloc(DstImage.height * DstImage.exaStride);
-		ptr = (LPBYTE)DstImage.exaBuff;
-		for (int i = 0; i < DstImage.height; i++)
-		{
-			DstImage.exaScan[i] = ptr;
-			memcpy(DstImage.exaScan[i], SrcImage.exaScan[i], DstImage.exaStride);
-			ptr = ptr + DstImage.exaStride;
-		}
+		buffer2Scanlines(DstImage.exaBuff, DstImage.exaScan, DstImage.height, DstImage.exaStride, SrcImage.exaScan);	
 	}
 	return 0;
 }
@@ -1460,9 +1445,9 @@ int TPspiCore::FinishImageSL(int imageStride, int alphaStride)
 int TPspiCore::StartMaskSL(int width, int height, bool useByPi)
 {
 	if (DstImage.width == 0)
-		return PSPIW_ERR_IMAGE_INVALID;
+		return PSPI_ERR_IMAGE_INVALID;
 	if (DstImage.width != width || DstImage.height != height)
-		return PSPIW_ERR_BAD_PARAM;
+		return PSPI_ERR_BAD_PARAM;
 	releaseImage(&SrcMask, false);
 	releaseImage(&ResMask, true);
 	SrcMask.width = width;
@@ -1477,9 +1462,9 @@ int TPspiCore::StartMaskSL(int width, int height, bool useByPi)
 int TPspiCore::AddMaskSL(int scanIndex, void *maskScanLine)
 {
 	if (SrcMask.width == 0)
-		return PSPIW_ERR_IMAGE_INVALID;
+		return PSPI_ERR_IMAGE_INVALID;
 	if (scanIndex >= SrcMask.height)
-		return PSPIW_ERR_BAD_PARAM;
+		return PSPI_ERR_BAD_PARAM;
 	SrcMask.imageScan[scanIndex] = (LPBYTE)maskScanLine;
 	return 0;
 }
@@ -1517,12 +1502,12 @@ int TPspiCore::PlugInLoad(const wchar_t *filter)
 	}
 	catch (...)
 	{
-		return PSPIW_ERR_FILTER_NOT_LOADED;
+		return PSPI_ERR_FILTER_NOT_LOADED;
 	}
 	if (!loadPIPLResources(HostRecord.dllHandle))
 	{
 		if (!loadPIMIResources(HostRecord.dllHandle))
-			return PSPIW_ERR_FILTER_INVALID;
+			return PSPI_ERR_FILTER_INVALID;
 	}
 	if (GFilterData.size() == 3)
 	{
@@ -1536,7 +1521,7 @@ int TPspiCore::PlugInLoad(const wchar_t *filter)
 		HostRecord.piCategory = "";
 		HostRecord.piName = "";
 		HostRecord.piEntrypointName = "";
-		return PSPIW_ERR_FILTER_INVALID;
+		return PSPI_ERR_FILTER_INVALID;
 	}
 	return 0;
 }
@@ -1547,13 +1532,13 @@ int TPspiCore::PlugInAbout(HWND hWnd)
 {
 	// check if plug-in is loaded
 	if (!HostRecord.filterLoaded)
-		return PSPIW_ERR_FILTER_NOT_LOADED;
+		return PSPI_ERR_FILTER_NOT_LOADED;
 	int rc = 0;
 	PLUGINPROC PluginMainProc;
 	PluginMainProc = (PLUGINPROC)GetProcAddress(HostRecord.dllHandle, HostRecord.piEntrypointName.c_str());
 	if (!PluginMainProc)
 	{
-		return PSPIW_ERR_FILTER_BAD_PROC;
+		return PSPI_ERR_FILTER_BAD_PROC;
 	}
 	AboutRecord aRecord;
 	PlatformData pData;
@@ -1573,11 +1558,11 @@ int TPspiCore::PlugInAbout(HWND hWnd)
 	{
 		PluginMainProc(plugInSelectorAbout, &aRecord, dataPtr, &result);
 		if (result)
-			rc = PSPIW_ERR_FILTER_DUMMY_PROC;
+			rc = PSPI_ERR_FILTER_DUMMY_PROC;
 	}
 	catch(...)
 	{
-		rc = PSPIW_ERR_FILTER_ABOUT_ERROR;
+		rc = PSPI_ERR_FILTER_ABOUT_ERROR;
 	}
 return rc;
 }
@@ -1588,10 +1573,10 @@ int TPspiCore::PlugInExecute(HWND hWnd)
 {
 	// check if image is set
 	if (!SrcImage.width || !DstImage.width )
-		return PSPIW_ERR_IMAGE_INVALID;
+		return PSPI_ERR_IMAGE_INVALID;
 	// check if plug-in is loaded
 	if (!HostRecord.filterLoaded)
-		return PSPIW_ERR_FILTER_NOT_LOADED;
+		return PSPI_ERR_FILTER_NOT_LOADED;
 	aState.Init();		
 	handleMap.clear();	// clear handle map
 	HostRecord.srcImage = &SrcImage;
@@ -1624,7 +1609,7 @@ int TPspiCore::PlugInExecute(HWND hWnd)
 	PluginMainProc = (PLUGINPROC)GetProcAddress(HostRecord.dllHandle, HostRecord.piEntrypointName.c_str());
 	if (!PluginMainProc)
 	{
-		return PSPIW_ERR_FILTER_BAD_PROC;
+		return PSPI_ERR_FILTER_BAD_PROC;
 	}
 	try
 	{
@@ -1660,11 +1645,11 @@ int TPspiCore::PlugInExecute(HWND hWnd)
 			 }
 		  }
 	   if (result != noErr)
-		  rc = PSPIW_ERR_FILTER_CANCELED;
+		  rc = PSPI_ERR_FILTER_CANCELED;
 	   }
 	 catch (...)
 	   {
-	   rc = PSPIW_ERR_FILTER_CRASHED;
+	   rc = PSPI_ERR_FILTER_CRASHED;
 	   }
 if (result == noErr)
 	{
@@ -1680,7 +1665,7 @@ handleMap.clear();	// clear handle map
 int TPspiCore::PlugInEnumerate(ENUMCALLBACK enumFunc, bool recurseSubFolders)
 {
 	if (HostRecord.piPath.empty())
-		return  PSPIW_ERR_WORK_PATH_EMPTY;
+		return  PSPI_ERR_WORK_PATH_EMPTY;
 	enumResourcesPath(HostRecord.piPath, enumFunc, recurseSubFolders);
 	return 0;
 }

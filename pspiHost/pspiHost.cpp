@@ -9,7 +9,7 @@ static char version[4];
 //-----------------------------------------------------------------
 const char* __stdcall pspiGetVersion(void)
 {  
-	memcpy(version, "0.6\0", 4);
+	memcpy(version, "0.7\0", 4);
 	return version;
 }
 //-----------------------------------------------------------------
@@ -29,6 +29,14 @@ int __stdcall pspiSetRoi(int top, int left, int bottom, int right)
 	piCore.HostRecord.roiRect.bottom = bottom;
 	piCore.HostRecord.roiRect.right = right;
 	piCore.HostRecord.roiRect.Normalize();
+	return 0;
+}
+//-----------------------------------------------------------------
+// set imege orientatio - As is or invert scanlines (this applies to mask also)
+//-----------------------------------------------------------------
+int __stdcall pspiSetImageOrientation(TImgOrientation orientation)
+{
+	piCore.HostRecord.imgOrientation = orientation;
 	return 0;
 }
 //-----------------------------------------------------------------
@@ -143,7 +151,7 @@ int __stdcall pspiPlugInExecute(HWND hWnd)
 int __stdcall pspiPlugInEnumerate(ENUMCALLBACK enumFunc, bool recurseSubFolders)
 {
 	if (enumFunc == NULL)
-		return PSPIW_ERR_FILTER_BAD_PROC;
+		return PSPI_ERR_FILTER_BAD_PROC;
 	return piCore.PlugInEnumerate(enumFunc, recurseSubFolders);
 }
 

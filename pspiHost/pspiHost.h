@@ -12,6 +12,8 @@ extern "C" PSPI_API const char* __stdcall pspiGetVersion(void);
 extern "C" PSPI_API int __stdcall pspiSetPath(const wchar_t *filterFolder);
 // set roi
 extern "C" PSPI_API int __stdcall pspiSetRoi(int top = 0, int left = 0, int bottom = 0, int right = 0);
+// set image orientation
+extern "C" PSPI_API int __stdcall pspiSetImageOrientation(TImgOrientation orientation);
 // set image using contiguous memory buffer pointer
 // note: source image is shared - do not destroy source image in your host program before plug-in is executed
 extern "C" PSPI_API int __stdcall pspiSetImage(TImgType type, int width, int height, void *imageBuff, int imageStride, void *alphaBuff = 0, int alphaStride = 0);

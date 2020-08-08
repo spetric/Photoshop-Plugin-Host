@@ -24,6 +24,7 @@ class TPspiCore
 		void enumResourcesPath(wstring &piFolder, ENUMCALLBACK enumFunc, bool recurseSubFolders);
 		void prepareSuites(void);
 		void prepareFilter(void);
+		void buffer2Scanlines(void *buffer, LPBYTE *scan, int height, int stride, LPBYTE *cpyScan = 0);
 		void *resizeBuffer(void *data, int &rowBytes, Rect rect, int loPlane, int hiPlane, int &prevSize);
 		int resizeImage(SpspiImage *src, SpspiImage *res, float sampleRate, int rectW, int rectH);
 		bool image2Buffer(SpspiImage *image, void *data, Rect plugRect, int rowBytes, int loPlane, int hiPlane, SpspiImage *res = NULL, float sampleRate = 0.0f);
