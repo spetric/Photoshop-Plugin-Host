@@ -61,7 +61,7 @@ Source image from your application (one that needs to be filtered) passed to psp
 
 Mask and ROI can be used in conjunction, the result is intersection of mask and ROI. 
 
-Embarcadero C++ OMF libs, Delphi pas files and release DLLs can be found in ***Aditional*** directory.  
+Embarcadero C++ OMF libs, Delphi pas files and release DLLs can be found in **Additional** directory.  
 
 ### Development status
 Version 0.5: error when executing filters on images with alpha channel.  
