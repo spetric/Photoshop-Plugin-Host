@@ -26,9 +26,9 @@ type TImgOrientation (PSPI_IMG_ORIENTATION_ASIS = 0, PSPI_IMG_ORIENTATION_INVERT
 
 // typedefs
 type 
-   ENUMCALLBACK = procedure(p1: PAnsiChar; p2: PAnsiChar; p3: PAnsiChar; p4: PWideChar); stdcall;
-   PROGRESSCALLBACK = procedure(p1: DWORD; p2: DWORD); stdcall;
-   COLORPICKERCALLBACK = function(var p1: DWORD): LongBool; stdcall;
+   ENUMCALLBACK = procedure(p1: PAnsiChar; p2: PAnsiChar; p3: PAnsiChar; p4: PWideChar); cdecl;
+   PROGRESSCALLBACK = procedure(p1: DWORD; p2: DWORD); cdecl;
+   COLORPICKERCALLBACK = function(var p1: DWORD): LongBool; cdecl;
 
 
 implementation
