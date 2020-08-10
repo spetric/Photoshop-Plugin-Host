@@ -36,7 +36,7 @@ Currently not supported in host engine:
 - Adobe Photoshop SDK
 
 ### pspiHost APIs:
-- ```pspiGetVersion(void);``` get current version: returns pointer to 3 charactes describing pspiHost version (currently 0.7).  
+- ```pspiGetVersion(void);``` get current version: returns pointer to 3 charactes describing pspiHost version (currently 0.8).  
 - ```pspiSetPath(const wchar_t *filterFolder);``` sets path to filters directory (usually some 8bf collection).  
 - ```pspiSetRoi(int top = 0, int left = 0, int bottom = 0, int right = 0);``` sets ROI (region of interest) to be filtered (rectangle).
 - ```pspiSetImageOrientation(TImgOrientation orientation);``` sets image orientation (PSPI_IMG_ORIENTATION_ASIS, PSPI_IMG_ORIENTATION_INVERT). Last option internaly inverts image scanlines (used if image upside-down). Must be set once before setting image using buffer. Has no effect when scanlines are added one by one. This API does not have to be called if image scanlines are top-down oriented (OpenCV Mat). 
