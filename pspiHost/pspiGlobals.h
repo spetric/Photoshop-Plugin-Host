@@ -18,7 +18,7 @@ const int PSPI_ERR_BAD_IMAGE_TYPE		= 15;
 enum TImgType {PSPI_IMG_TYPE_BGR = 0, PSPI_IMG_TYPE_BGRA, PSPI_IMG_TYPE_RGB, PSPI_IMG_TYPE_RGBA, PSPI_IMG_TYPE_GRAY, PSPI_IMG_TYPE_GRAYA };
 enum TImgOrientation {PSPI_IMG_ORIENTATION_ASIS = 0, PSPI_IMG_ORIENTATION_INVERT};
 // typedefs
-typedef void (__stdcall *ENUMCALLBACK)(const char *, const char *, const char *, const wchar_t *);
-typedef void (__stdcall *PROGRESSCALLBACK)(unsigned int, unsigned int);
-typedef bool (__stdcall *COLORPICKERCALLBACK)(unsigned int &);
+typedef void (*ENUMCALLBACK)(const char *, const char *, const char *, const wchar_t *);
+typedef void (*PROGRESSCALLBACK)(unsigned int, unsigned int);
+typedef bool (*COLORPICKERCALLBACK)(unsigned int &);
 

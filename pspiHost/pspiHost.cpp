@@ -7,22 +7,22 @@ static char version[4];
 //-----------------------------------------------------------------
 // get version
 //-----------------------------------------------------------------
-const char* __stdcall pspiGetVersion(void)
+const char* pspiGetVersion(void)
 {  
-	memcpy(version, "0.7\0", 4);
+	memcpy(version, "0.8\0", 4);
 	return version;
 }
 //-----------------------------------------------------------------
 // set path
 //-----------------------------------------------------------------
-int __stdcall pspiSetPath(const wchar_t *filterFolder)
+int pspiSetPath(const wchar_t *filterFolder)
 {
 	return piCore.SetPath(filterFolder);
 }
 //---------------------------------------------------------------------------
 // set filter roi
 //---------------------------------------------------------------------------
-int __stdcall pspiSetRoi(int top, int left, int bottom, int right)
+int pspiSetRoi(int top, int left, int bottom, int right)
 {
 	piCore.HostRecord.roiRect.top = top;
 	piCore.HostRecord.roiRect.left = left;
@@ -34,7 +34,7 @@ int __stdcall pspiSetRoi(int top, int left, int bottom, int right)
 //-----------------------------------------------------------------
 // set imege orientatio - As is or invert scanlines (this applies to mask also)
 //-----------------------------------------------------------------
-int __stdcall pspiSetImageOrientation(TImgOrientation orientation)
+int pspiSetImageOrientation(TImgOrientation orientation)
 {
 	piCore.HostRecord.imgOrientation = orientation;
 	return 0;
@@ -42,7 +42,7 @@ int __stdcall pspiSetImageOrientation(TImgOrientation orientation)
 //-----------------------------------------------------------------
 // set working image - pass contiguous buffer
 //-----------------------------------------------------------------
-int __stdcall pspiSetImage(TImgType type, int width, int height, void *imageBuff, int imageStride, void *alphaBuff, int alphaStride)
+int pspiSetImage(TImgType type, int width, int height, void *imageBuff, int imageStride, void *alphaBuff, int alphaStride)
 {
 	pspiSetRoi();	// clear roi
 	return piCore.SetImage(type, width, height, imageBuff, imageStride, alphaBuff, alphaStride);
@@ -50,14 +50,14 @@ int __stdcall pspiSetImage(TImgType type, int width, int height, void *imageBuff
 //-----------------------------------------------------------------
 // set working mask - pass contiguous buffer (grayscale image)
 //-----------------------------------------------------------------
-int __stdcall pspiSetMask(int width, int height, void *maskBuff, int maskStride, bool useMaskByPi)
+int pspiSetMask(int width, int height, void *maskBuff, int maskStride, bool useMaskByPi)
 {
 	return piCore.SetMask(width, height, maskBuff, maskStride, useMaskByPi);
 }
 //-----------------------------------------------------------------
 // start working image creation - for passing scanlines
 //-----------------------------------------------------------------
-int __stdcall pspiStartImageSL(TImgType type, int width, int height, bool externalAplha)
+int pspiStartImageSL(TImgType type, int width, int height, bool externalAplha)
 {
 	pspiSetRoi();	// clear roi
 	imgSclIndex = 0;
@@ -66,21 +66,21 @@ int __stdcall pspiStartImageSL(TImgType type, int width, int height, bool extern
 //-----------------------------------------------------------------
 // add image scanline (use it in loop)
 //-----------------------------------------------------------------
-int __stdcall pspiAddImageSL(void *imageScanLine, void *alphaScanLine)
+int pspiAddImageSL(void *imageScanLine, void *alphaScanLine)
 {
 	return piCore.AddImageSL(imgSclIndex++, imageScanLine, alphaScanLine);
 }
 //-----------------------------------------------------------------
 // finish image creation using scanlines
 //-----------------------------------------------------------------
-int __stdcall pspiFinishImageSL(int imageStride, int alphaStride)
+int pspiFinishImageSL(int imageStride, int alphaStride)
 {
 	return piCore.FinishImageSL(imageStride, alphaStride);
 }
 //-----------------------------------------------------------------
 // start mask creation - for passing scanlines
 //-----------------------------------------------------------------
-int __stdcall pspiStartMaskSL(int width, int height, bool useMaskByPi)
+int pspiStartMaskSL(int width, int height, bool useMaskByPi)
 {
 	maskSclIndex = 0;
 	return piCore.StartMaskSL(width, height, useMaskByPi);
@@ -88,21 +88,21 @@ int __stdcall pspiStartMaskSL(int width, int height, bool useMaskByPi)
 //-----------------------------------------------------------------
 // add mask scanline (use it in loop)
 //-----------------------------------------------------------------
-int __stdcall pspiAddMaskSL(void *maskScanLine)
+int pspiAddMaskSL(void *maskScanLine)
 {
 	return piCore.AddMaskSL(maskSclIndex++, maskScanLine);
 }
 //-----------------------------------------------------------------
 // finish mask creation using scanlies
 //-----------------------------------------------------------------
-int __stdcall pspiFinishMaskSL(int maskStride)
+int pspiFinishMaskSL(int maskStride)
 {
 	return piCore.FinishMaskSL(maskStride);
 }
 //-----------------------------------------------------------------
 // set progress procedure call back
 //-----------------------------------------------------------------
-int __stdcall pspiReleaseAllImages(void)
+int pspiReleaseAllImages(void)
 {
 	pspiSetRoi();	// clear roi
 	piCore.ReleaseAllImages();
@@ -111,7 +111,7 @@ int __stdcall pspiReleaseAllImages(void)
 //-----------------------------------------------------------------
 // set progress procedure call back
 //-----------------------------------------------------------------
-int __stdcall pspiSetProgressCallBack(PROGRESSCALLBACK progressProc)
+int pspiSetProgressCallBack(PROGRESSCALLBACK progressProc)
 {
 	piCore.ProgressCallBack = progressProc;
 	return 0;
@@ -119,7 +119,7 @@ int __stdcall pspiSetProgressCallBack(PROGRESSCALLBACK progressProc)
 //-----------------------------------------------------------------
 // set color picker procedure call back
 //-----------------------------------------------------------------
-int __stdcall pspiSetColorPickerCallBack(COLORPICKERCALLBACK colorPickerProc)
+int pspiSetColorPickerCallBack(COLORPICKERCALLBACK colorPickerProc)
 {
 	piCore.ColorPickerCallback = colorPickerProc;
 	return 0;
@@ -127,28 +127,28 @@ int __stdcall pspiSetColorPickerCallBack(COLORPICKERCALLBACK colorPickerProc)
 //-----------------------------------------------------------------
 // Load plugin
 //-----------------------------------------------------------------
-int __stdcall pspiPlugInLoad(const wchar_t *filter)
+int pspiPlugInLoad(const wchar_t *filter)
 {
 	return piCore.PlugInLoad(filter);
 }
 //-----------------------------------------------------------------
 // Show plug-in about
 //-----------------------------------------------------------------
-int __stdcall pspiPlugInAbout(HWND hWnd)
+int pspiPlugInAbout(HWND hWnd)
 {
 	return piCore.PlugInAbout(hWnd);
 }
 //-----------------------------------------------------------------
 // Execute loaded plug-in
 //-----------------------------------------------------------------
-int __stdcall pspiPlugInExecute(HWND hWnd)
+int pspiPlugInExecute(HWND hWnd)
 {
 	return piCore.PlugInExecute(hWnd);
 }
 //---------------------------------------------------------------------------
 // Enumerate Filters from directory using call back function
 //---------------------------------------------------------------------------
-int __stdcall pspiPlugInEnumerate(ENUMCALLBACK enumFunc, bool recurseSubFolders)
+int pspiPlugInEnumerate(ENUMCALLBACK enumFunc, bool recurseSubFolders)
 {
 	if (enumFunc == NULL)
 		return PSPI_ERR_FILTER_BAD_PROC;
