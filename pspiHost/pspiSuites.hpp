@@ -422,7 +422,7 @@ OSErr DoDisplayPixels(const PSPixelMap *source, const VRect *srcRect, int32 dstR
 					for (int k = 0; k < SuitesDisplChans; k++)
 					{
 						LPBYTE src_ptr = src + k * source->planeBytes;
-						dst[k] = src_ptr[SuitesChanOrder[k]];
+						dst[SuitesChanOrder[k]] = src_ptr[k];
 					}
 		            /*
 					rgb[0]= *src;
@@ -448,7 +448,7 @@ OSErr DoDisplayPixels(const PSPixelMap *source, const VRect *srcRect, int32 dstR
 				{
 					/* take care of channels order -> dest DIB can be BGR, source can be RGB */
 					for (int k = 0; k < SuitesDisplChans; k++)
-						dst[k] = src[SuitesChanOrder[k]];
+						dst[SuitesChanOrder[k]] = src[k];
 					//TODO: checkerboard for alpha channel
 					// move forward
 					dst += bypp;

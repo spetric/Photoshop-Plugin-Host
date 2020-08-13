@@ -1,15 +1,23 @@
 #include "stdafx.h"
 #include <string>
 #include <vector>
+#include <iostream>
 #include <experimental/filesystem>
 #include "TPspiCore.h"
 #include "pspiSuites.hpp"
+//#include "uxtheme.h"
 namespace fsys = experimental::filesystem;
 static vector<string> GFilterData;
 static bool GFilterInputHandling[7];
 static bool GFilterOutputHandling[7];
 //static bool GDontCopySrc2Dst;
 //void *GThisPtr;
+static HMODULE GHModule;
+static HHOOK GHookEx;
+static int GFilterStage;
+static HWND GAppHandle;
+//-----------------------------------------------------------------
+// extern declarations for accesing meber moethods from pspiSuites.hpp
 //-----------------------------------------------------------------
 extern "C" void AdvanceStateProcessPtr(void* object)
 {
@@ -29,45 +37,35 @@ extern "C" void ProgressProcessPtr(void* object, uint32 done, uint32 total)
 		return;
     static_cast<TPspiCore*>( object)->ProgressCallBack(done, total);
 }
-//-----------------------------------------------------------------
-// trivial constructor
-//-----------------------------------------------------------------
-TPspiCore::TPspiCore()
+//---------------------------------------------------------------------------
+// Block for unstyling - for Embarcadero VCL styles affecting plug-in windows
+// I don't have time for this crap...
+//---------------------------------------------------------------------------
+/*
+LRESULT CALLBACK spHookProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-	 int buff_size = 65535;
-	 HostRecord.initialEnvPath.resize(buff_size);
-	 GetEnvironmentVariableW((LPCWSTR)L"PATH", (LPWSTR)&(HostRecord.initialEnvPath[0]), buff_size);
-	 ColorPickerCallback = 0;
-	 ProgressCallBack = 0;
-	 hRecordPtr = &HostRecord;
-	 SuitesFPR = &fRecord;
-	 SuitesASP = AdvanceStateProcessPtr;
-	 SuitesCPR = ColorPickerProcessPtr;
-	 SuitesPGR = ProgressProcessPtr;
-	 SuitesHMP = &handleMap;
-	 SuitesCorePtr = this;
-	 SuitesChanOrder = &chanOrder[0];
-}
-//-----------------------------------------------------------------
-// destructor
-//-----------------------------------------------------------------
-TPspiCore::~TPspiCore()
-{
-	if (!HostRecord.initialEnvPath.empty())
-		SetEnvironmentVariableW((LPCWSTR)L"PATH", &HostRecord.initialEnvPath[0]);
-	ReleaseAllImages();
-	if (HostRecord.dllHandle)
+	int test = 0;
+	if (nCode < 0)
+		return CallNextHookEx(NULL, nCode, wParam, lParam);
+
+	if (nCode == HCBT_ACTIVATE)
 	{
-		try
+		HWND hWnd = (HWND)wParam;
+		HWND hPar = GetParent(hWnd);
+		if (GFilterStage > 0 &&	GFilterStage < 4)
 		{
-			FreeLibrary(HostRecord.dllHandle);
-		}
-		catch (...)
-		{
-			// never mind
-		}
+			if (hWnd)
+			{
+				SetWindowTheme(hWnd, L" ", L" ");
+				// DEBUG OUTPUT
+				cout << hWnd << "\n";
+				cout << hPar << "\n";
+			}
+		}	
 	}
+	return CallNextHookEx(NULL, nCode, wParam, lParam);
 }
+*/
 //---------------------------------------------------------------------------
 // PIPL enumerator - non-class function
 //---------------------------------------------------------------------------
@@ -220,6 +218,50 @@ if (loadedPiPL)
 return loadedPiPL;
 }
 //-----------------------------------------------------------------
+// CLASS members
+// trivial constructor
+//-----------------------------------------------------------------
+TPspiCore::TPspiCore()
+{
+	 GHModule = GetModuleHandle("pspiHost.dll");
+	 GFilterStage = 0;
+	 GAppHandle = 0;
+	 //freopen("output.log","w",stdout); <- collect log
+	 int buff_size = 65535;
+	 HostRecord.initialEnvPath.resize(buff_size);
+	 GetEnvironmentVariableW((LPCWSTR)L"PATH", (LPWSTR)&(HostRecord.initialEnvPath[0]), buff_size);
+	 ColorPickerCallback = 0;
+	 ProgressCallBack = 0;
+	 hRecordPtr = &HostRecord;
+	 SuitesFPR = &fRecord;
+	 SuitesASP = AdvanceStateProcessPtr;
+	 SuitesCPR = ColorPickerProcessPtr;
+	 SuitesPGR = ProgressProcessPtr;
+	 SuitesHMP = &handleMap;
+	 SuitesCorePtr = this;
+	 SuitesChanOrder = &chanOrder[0];
+}
+//-----------------------------------------------------------------
+// destructor
+//-----------------------------------------------------------------
+TPspiCore::~TPspiCore()
+{
+	if (!HostRecord.initialEnvPath.empty())
+		SetEnvironmentVariableW((LPCWSTR)L"PATH", &HostRecord.initialEnvPath[0]);
+	ReleaseAllImages();
+	if (HostRecord.dllHandle)
+	{
+		try
+		{
+			FreeLibrary(HostRecord.dllHandle);
+		}
+		catch (...)
+		{
+			// never mind
+		}
+	}
+}
+//-----------------------------------------------------------------
 // private methods section
 //-----------------------------------------------------------------
 void TPspiCore::releaseImage(SpspiImage *img, bool dispose)
@@ -231,9 +273,9 @@ void TPspiCore::releaseImage(SpspiImage *img, bool dispose)
 		if (img->exaScan)
 			delete []img->exaScan;
 		if (img->imageBuff && dispose)
-			free(img->imageBuff);
+			GlobalFree(img->imageBuff);
 		if (img->exaBuff && dispose)
-			free(img->exaBuff);
+			GlobalFree(img->exaBuff);
 		img->imageScan = 0;
 		img->exaScan = 0;
 		img->imageBuff = 0;
@@ -247,23 +289,37 @@ void TPspiCore::releaseImage(SpspiImage *img, bool dispose)
 	}
 }
 //-----------------------------------------------------------------
+// set windowsHookEx
+//-----------------------------------------------------------------
 /*
-void TPspiCore::releaseMask(SpspiMask *mask, bool dispose)
+void TPspiCore::setUnstyler(void)
 {
-	if (mask->width) 
-		{
-		if (mask->maskScan)
-			delete []mask->maskScan;
-		if (mask->maskBuff && dispose)
-			free(mask->maskBuff);
-		mask->maskBuff = 0;
-		mask->maskScan = 0;
-		mask->width = 0;
-		mask->height = 0;
-		mask->maskStride = 0;
-		}
+	 GHookEx = SetWindowsHookEx(WH_CBT, (HOOKPROC)spHookProc, GHModule, 0);
+	 DWORD erc = GetLastError();
+	 if (erc > 0)
+		 return;
+
 }
 */
+//-----------------------------------------------------------------
+void TPspiCore::getAviailableSpace(int &space32, int64 &space64)
+{
+	// Let's start with 1GB
+	space32 = 1024 * 1024 * 1024;
+	space64 = (int64)space32;
+	//
+	MEMORYSTATUSEX statex;
+	memset(&statex, 0, sizeof(statex));
+	statex.dwLength = sizeof (statex);
+	if (GlobalMemoryStatusEx(&statex))
+	{
+		space64 = statex.ullAvailVirtual;
+		if (statex.ullAvailVirtual < INT_MAX)
+			space32 = (int)statex.ullAvailVirtual;
+		else
+			space32 = 0x7FFFFFFF;	// 2GB max
+	}
+}
 //-----------------------------------------------------------------
 bool TPspiCore::loadPIPLResources(HINSTANCE DLL_Handle)
 {
@@ -556,10 +612,10 @@ void  TPspiCore::prepareFilter(void)
 	fRecord.foreColor[1] = f_color[1];
 	fRecord.foreColor[2] = f_color[2];
 	fRecord.foreColor[3] = 0xff;
-	//TODO: calculate available space
-    //fRecord.maxSpace64 =  100000000;
-	fRecord.maxSpace = 100000000;         // maximum total space???
-	//fRecord.bufferSpace = fRecord.maxSpace;
+	// let's calcualte available space
+	getAviailableSpace(fRecord.maxSpace, fRecord.maxSpace64);
+	fRecord.bufferSpace = fRecord.maxSpace;
+	fRecord.bufferSpace64 = fRecord.maxSpace64;
 	//fRecord.inRect = Rect();    
 	//fRecord.inLoPlane = 0;
 	//fRecord.inHiPlane = 2;
@@ -570,7 +626,7 @@ void  TPspiCore::prepareFilter(void)
 	//
 	//fRecord.outLoPlane = 0;
 	//fRecord.outHiPlane = 2;
-	 //fRecord.inData = NULL;  // pointer to input buffer
+	//fRecord.inData = NULL;  // pointer to input buffer
 	//fRecord.inRowBytes = 0;  // inrow bytes
 	//fRecord.outData = NULL;   // pointer to output buffer
 	//fRecord.outRowBytes = 0;       
@@ -727,9 +783,9 @@ void  TPspiCore::prepareFilter(void)
 	fRecord.wantsAbsolute = false;			// Does the plug-in want absolute plane indexing? (input only)
 	fRecord.cannotUndo = false;			// If set to TRUE, then undo will not be enabled for this command.
 	fRecord.supportsPadding = false;	    // Does the host support requests outside the image area?
-	fRecord.inputPadding = plugInWantsErrorOnBoundsException;        // Instructions for padding the input.
-	fRecord.outputPadding = plugInWantsErrorOnBoundsException;        // Instructions for padding the output.
-	fRecord.maskPadding = plugInWantsErrorOnBoundsException;		   // Padding instructions for the mask.
+	//fRecord.inputPadding = plugInWantsErrorOnBoundsException;        // Instructions for padding the input.
+	//fRecord.outputPadding = plugInWantsErrorOnBoundsException;        // Instructions for padding the output.
+	//fRecord.maskPadding = plugInWantsErrorOnBoundsException;		   // Padding instructions for the mask.
 	fRecord.samplingSupport = true;     // Does the host support sampling the input and mask?
 	// fRecord.reservedByte;		       - Alignment.
 	fRecord.inputRate = FixRatio(1, 1);		// Input sample rate.
@@ -785,31 +841,36 @@ void TPspiCore::buffer2Scanlines(void * buffer, LPBYTE *scan, int height, int st
 //---------------------------------------------------------------------------
 // resize buffer 
 //---------------------------------------------------------------------------
-void * TPspiCore::resizeBuffer(void *data, int &rowBytes, Rect rect, int loPlane, int hiPlane, int &prevSize)
+void *TPspiCore::resizeBuffer(void *data, int &rowBytes, Rect &rect, int loPlane, int hiPlane, int &size)
 {
 	void *res_ptr = 0;
 	if ((rect.right <= 0) || (rect.bottom <= 0))
 	{
 		if (data)
 		{
-		free(data);
-		data = 0;
+		GlobalFree(data);
 		rowBytes = 0;
+		size = 0;
 		}
-		return res_ptr;
+		return 0;
 	}
+	// some plugins require rect beyond image border - no chance!
+	if (rect.bottom > hRecordPtr->srcImage->height)
+		rect.bottom = hRecordPtr->srcImage->height;
+	if (rect.right > hRecordPtr->srcImage->width)
+		rect.right = hRecordPtr->srcImage->width;
 	int nplanes = hiPlane - loPlane + 1;
 	int w = rect.right - rect.left;
 	int h = rect.bottom - rect.top;
-	int stride = nplanes * w;
-	int size = nplanes * w * h;
-	if (size == prevSize)	// same size, do not resize
-		return data;
+	rowBytes = nplanes * w;
+	size = nplanes * w * h;
 	if (data)
-		free(data);
-	res_ptr = malloc (size);
-	rowBytes = stride;
-	prevSize = size;
+	{
+		if (size == GlobalSize(data))	// same size, do not resize
+			return data;
+		GlobalFree(data);
+	}
+	res_ptr = GlobalAlloc(GMEM_FIXED, size);
 	return res_ptr;
 }
 //---------------------------------------------------------------------------
@@ -839,49 +900,48 @@ int TPspiCore::resizeImage(SpspiImage *src, SpspiImage *res, float sampleRate, i
 		scaleWidth = rectW;
 	if (rectH > scaleHeight)
 		scaleHeight = rectH;
-	if (res->imageBuff == 0 || scaleWidth != res->width || scaleHeight != res->height)
+	if (res->imageBuff && scaleWidth == res->width && scaleHeight == res->height)	// already scaled?
+		return step;
+	if (res->imageBuff)
+		releaseImage(res, true);
+	// create resample image
+	res->width = scaleWidth;
+	res->height = scaleHeight;
+	res->channels  = src->channels;
+	res->exaChannels = src->exaChannels;
+	res->imageStride = src->channels * scaleWidth;
+	res->exaStride = src->exaChannels *scaleWidth;
+	res->imageBuff = GlobalAlloc(GMEM_FIXED, scaleHeight * res->imageStride);
+	res->imageScan = new LPBYTE[scaleHeight];
+	// fill res image scanlines
+	LPBYTE ptr = (LPBYTE)res->imageBuff;
+	for (int i = 0; i < scaleHeight; i++)
 	{
-		if (res->imageBuff)
-			releaseImage(res, true);
-		// create resample image
-		res->width = scaleWidth;
-		res->height = scaleHeight;
-		res->channels  = src->channels;
-		res->exaChannels = src->exaChannels;
-		res->imageStride = src->channels * scaleWidth;
-		res->exaStride = src->exaChannels *scaleWidth;
-		res->imageBuff = malloc(scaleHeight * res->imageStride);
-		res->imageScan = new LPBYTE[scaleHeight];
-		// fill res image scanlines
-		LPBYTE ptr = (LPBYTE)res->imageBuff;
+		res->imageScan[i] = ptr;
+		memset(res->imageScan[i], 0, res->imageStride);
+		ptr = ptr + res->imageStride;
+	}
+	// image has separated alpha channel - create res alpha
+	if (src->exaBuff)
+	{
+		res->exaBuff = GlobalAlloc(GMEM_FIXED, scaleHeight * res->exaStride);
+		res->exaScan = new LPBYTE[scaleHeight];	
+		ptr = (LPBYTE)res->exaBuff;
 		for (int i = 0; i < scaleHeight; i++)
 		{
-			res->imageScan[i] = ptr;
-			memset(res->imageScan[i], 0, res->imageStride);
-			ptr = ptr + res->imageStride;
-		}
-		// image has separated alpha channel - create res alpha
-		if (src->exaBuff)
-		{
-			res->exaBuff = malloc(scaleHeight * res->exaStride);
-			res->exaScan = new LPBYTE[scaleHeight];	
-			ptr = (LPBYTE)res->exaBuff;
-			for (int i = 0; i < scaleHeight; i++)
-			{
-				res->exaScan[i] = ptr;
-				memset(res->exaScan[i], 0, res->exaStride);
-				ptr = ptr + res->exaStride;
-			}
-		}
-		else
-		{
-			res->exaScan = 0;
-			res->exaStride = 0;
+			res->exaScan[i] = ptr;
+			memset(res->exaScan[i], 0, res->exaStride);
+			ptr = ptr + res->exaStride;
 		}
 	}
+	else
+	{
+		res->exaScan = 0;
+		res->exaStride = 0;
+	}
 	// calculate crap resample step
-	int step_y = src->width / scaleWidth;
-	int step_x = src->height / scaleHeight;
+	int step_y = src->height / scaleHeight;
+	int step_x = src->width / scaleWidth;
 	// perform crap resampler	
 	LPBYTE src_ip, src_ap = 0, dst_ip = 0, dst_ap = 0;
 	for (int i = 0; i < res->height; i++)
@@ -954,14 +1014,22 @@ bool TPspiCore::image2Buffer(SpspiImage *image, void *data, Rect plugRect, int r
 	int hip = (exaScan != NULL) ? hiPlane - image->exaChannels : hiPlane;
 	LPBYTE src_ptr, plug_ptr, exa_ptr = 0;
 	plug_ptr = (LPBYTE)data;
+	// DEBUG OUTPUT
+	/*
+	cout << "top = " << top <<  "\n";
+	cout << "left = " << left <<  "\n";
+	cout << "bottom = " << bottom <<  "\n";
+	cout << "right = " << right <<  "\n";
+	*/
+	// 
 	for (int i = top; i < bottom; i++)
 	{
 		src_ptr = imageScan[i];
-		src_ptr = src_ptr + image->channels * left;
+		src_ptr = src_ptr + (image->channels * left);
 		if (exaScan)	// external alpha channel
 		{
 			exa_ptr = exaScan[i];
-			exa_ptr = exa_ptr + image->exaChannels * left;
+			exa_ptr = exa_ptr + (image->exaChannels * left);
 		}
 		for (int j = left; j < right; j++)
 		{
@@ -992,6 +1060,8 @@ bool TPspiCore::image2Buffer(SpspiImage *image, void *data, Rect plugRect, int r
 bool TPspiCore::buffer2Image(SpspiImage *image, void *data, Rect plugRect,  int rowBytes, int loPlane, int hiPlane)
 {  
 	if ((plugRect.right <= 0) || (plugRect.bottom <= 0))
+		return false;
+	if (plugRect.left >= image->width || plugRect.top >= image->height)
 		return false;
 	// validate rectangle
 	Rect rect = plugRect;
@@ -1112,7 +1182,8 @@ void TPspiCore::dst2Src(void)
 //---------------------------------------------------------------------------
 void TPspiCore::ProcessAdvanceState(void)
 {
-	buffer2Image(hRecordPtr->dstImage, fRecord.outData, aState.lastOutRect, aState.lastOutRowBytes, aState.lastOutLoPlane, aState.lastOutHiPlane);
+	if (fRecord.outData)
+		buffer2Image(hRecordPtr->dstImage, fRecord.outData, aState.lastOutRect, aState.lastOutRowBytes, aState.lastOutLoPlane, aState.lastOutHiPlane);
 	// mask buffer
 	int sCord0 = chanOrder[0];
 	chanOrder[0] = 0;	// we're using the same method for mask, so if chanOrder[0] = 2 (BGR) we will write outside data block 
@@ -1121,7 +1192,8 @@ void TPspiCore::ProcessAdvanceState(void)
 		if (!EqRects(&(aState.lastMaskRect), &(fRecord.maskRect)))
 		{
 			fRecord.maskData = resizeBuffer(fRecord.maskData, fRecord.maskRowBytes, fRecord.maskRect, 0, 0, aState.maskSize);
-			if (aState.maskSize > 0)
+			aState.maskBuffOK = (aState.maskSize > 0);
+			if (aState.maskBuffOK)
 				aState.maskBuffOK = image2Buffer(hRecordPtr->mask, fRecord.maskData, fRecord.maskRect, fRecord.maskRowBytes, 0, 0, &ResMask, Fixed2Float(fRecord.maskRate));
 		}
 	}
@@ -1131,7 +1203,8 @@ void TPspiCore::ProcessAdvanceState(void)
 	{
 		fRecord.inData = resizeBuffer(fRecord.inData, fRecord.inRowBytes, fRecord.inRect, fRecord.inLoPlane, fRecord.inHiPlane, aState.inSize);
 		// copy src to input buffer
-		if (aState.inSize > 0)
+		aState.inBuffOK = (aState.inSize > 0);
+		if (aState.inBuffOK)
 			aState.inBuffOK = image2Buffer(hRecordPtr->srcImage, fRecord.inData, fRecord.inRect, fRecord.inRowBytes, fRecord.inLoPlane, fRecord.inHiPlane, &ResImage, Fixed2Float(fRecord.inputRate));
 	}	
 	// output buffer
@@ -1140,41 +1213,52 @@ void TPspiCore::ProcessAdvanceState(void)
 		// resize output buffer
 		fRecord.outData = resizeBuffer(fRecord.outData, fRecord.outRowBytes, fRecord.outRect, fRecord.outLoPlane, fRecord.outHiPlane, aState.outSize);
 		// copy tgt to output buffer
-		if (aState.outSize)
+		aState.outBuffOK = (aState.outSize > 0);
+		if (aState.outBuffOK)
 			aState.outBuffOK = image2Buffer(hRecordPtr->dstImage, fRecord.outData, fRecord.outRect, fRecord.outRowBytes, fRecord.outLoPlane, fRecord.outHiPlane);
 	}
-	if (!aState.maskBuffOK)
+	if (fRecord.haveMask)
 	{
-		if (fRecord.maskData)
-			free(fRecord.maskData);
-		fRecord.maskData = 0;
-		aState.maskSize = 0;
-		aState.lastMaskRect = Rect();
+		if (!aState.maskBuffOK)
+		{
+			if (fRecord.maskData)
+				GlobalFree(fRecord.maskData);
+			fRecord.maskData = 0;
+			aState.maskSize = 0;
+			PurgeRect(&aState.lastMaskRect);
+		}
+		else
+		{
+			aState.lastMaskRect = fRecord.maskRect;
+		}
 	}
 	if (!aState.inBuffOK)
 	{
 		if (fRecord.inData)
-			free(fRecord.inData);
+			GlobalFree(fRecord.inData);
 		fRecord.inData = 0;
+		fRecord.inRowBytes = 0;
 		aState.inSize = 0;
-		aState.lastInRect = Rect();
+		PurgeRect(&aState.lastInRect);
+	}
+	else
+	{
+		aState.lastInRect = fRecord.inRect;
 	}
 	if (!aState.outBuffOK)
 	{
 		if (fRecord.outData)
-			free(fRecord.outData);
+			GlobalFree(fRecord.outData);
 		fRecord.outData = 0;
+		fRecord.outRowBytes = 0;
 		aState.outSize = 0;
-		aState.lastOutRect = Rect();
+		PurgeRect(&aState.lastOutRect);
 		aState.lastOutRowBytes = 0;
 		aState.lastOutLoPlane = 0;
 		aState.lastOutHiPlane = 0;
 	}
 	else
 	{
-		// store previous out values
-		aState.lastInRect = fRecord.inRect;
-		aState.lastMaskRect = fRecord.maskRect;
 		aState.lastOutRect = fRecord.outRect;
 		aState.lastOutRowBytes = fRecord.outRowBytes;
 		aState.lastOutLoPlane = fRecord.outLoPlane;
@@ -1276,7 +1360,7 @@ int TPspiCore::SetImage(TImgType type, int width, int height, void *imageBuff, i
 		buffer2Scanlines(alphaBuff, SrcImage.exaScan, height, alphaStride);
 	}
 	// create and set destination image - copy of source
-	DstImage.imageBuff = malloc(height * imageStride);
+	DstImage.imageBuff = GlobalAlloc(GMEM_FIXED, height * imageStride);
 	DstImage.imageScan = new LPBYTE[height];
 	// fill destination image scanlines
 	buffer2Scanlines(DstImage.imageBuff, DstImage.imageScan, height, imageStride, SrcImage.imageScan);
@@ -1284,7 +1368,7 @@ int TPspiCore::SetImage(TImgType type, int width, int height, void *imageBuff, i
 	if (alphaBuff)
 	{
 		DstImage.exaChannels++;	// increase external alpha channels
-		DstImage.exaBuff = malloc(height * alphaStride);
+		DstImage.exaBuff = GlobalAlloc(GMEM_FIXED, height * alphaStride);
 		DstImage.exaScan = new LPBYTE[height];	
 		buffer2Scanlines(DstImage.exaBuff, DstImage.exaScan, height, alphaStride, SrcImage.exaScan);	
 	}
@@ -1302,12 +1386,14 @@ int TPspiCore::SetMask(int width, int height, void *maskBuff, int maskStride, bo
 {
 	releaseImage(&SrcMask, false);
 	releaseImage(&ResMask, true);
+	if (width == 0 || height == 0 || maskBuff == 0 || maskStride == 0)	// we just want to clear mask, that's ok 
+		return 0;
 	SrcMask.width = width;
 	SrcMask.height = height;
 	SrcMask.imageStride = maskStride;
 	SrcMask.channels = 1;
 	// save buffer poiner
-	SrcImage.imageBuff = maskBuff;
+	SrcMask.imageBuff = maskBuff;
 	// fill mask scanlines
 	SrcMask.imageScan = new LPBYTE[height];
 	buffer2Scanlines(SrcMask.imageBuff, SrcMask.imageScan, height, maskStride);	
@@ -1420,7 +1506,7 @@ int TPspiCore::FinishImageSL(int imageStride, int alphaStride)
 	}
 	else
 		DstImage.imageStride = DstImage.width * DstImage.channels;	// only dest stride as we don't know src alignement
-	DstImage.imageBuff = malloc(DstImage.height * DstImage.imageStride);
+	DstImage.imageBuff = GlobalAlloc(GMEM_FIXED, DstImage.height * DstImage.imageStride);
 	// fill destination image scanlines
 	buffer2Scanlines(DstImage.imageBuff, DstImage.imageScan, DstImage.height, DstImage.imageStride, SrcImage.imageScan);
 	if (alphaStride != 0)
@@ -1434,7 +1520,7 @@ int TPspiCore::FinishImageSL(int imageStride, int alphaStride)
 	}
 	if (DstImage.exaScan)
 	{
-		DstImage.exaBuff = malloc(DstImage.height * DstImage.exaStride);
+		DstImage.exaBuff = GlobalAlloc(GMEM_FIXED, DstImage.height * DstImage.exaStride);
 		buffer2Scanlines(DstImage.exaBuff, DstImage.exaScan, DstImage.height, DstImage.exaStride, SrcImage.exaScan);	
 	}
 	return 0;
@@ -1542,18 +1628,20 @@ int TPspiCore::PlugInAbout(HWND hWnd)
 	}
 	AboutRecord aRecord;
 	PlatformData pData;
-	aRecord.platformData = &pData;
 	int16 result = 1;
-	intptr_t* dataPtr = NULL;
-	SPBasicSuite bSuite;
+	SpspiHandle parHandle;
+	parHandle.hPointer = NULL;
+	parHandle.hSize = 0;
+	intptr_t *dataPtr = (intptr_t*)(&parHandle);
+	//SPBasicSuite bSuite;
+	//memset(&bSuite, 0, sizeof(bSuite));
 	pData.hwnd = (intptr_t) hWnd;
+	// zero aboutrecord
 	memset(&aRecord, 0, sizeof(aRecord));
 	aRecord.platformData = &pData;
-	 // uups, input, acquire about fails...
-	memset(&bSuite, 0, sizeof(bSuite));
-	bSuite.AcquireSuite = 0;// AcquireSuite;
-	aRecord.sSPBasic = 0;   // &bSuite;
-	aRecord.plugInRef = 0;  // Application;
+	bSuite.AcquireSuite = 0; // AcquireSuite;
+	aRecord.sSPBasic = 0;    // bSuite;
+	aRecord.plugInRef = 0;   // Application;
 	try
 	{
 		PluginMainProc(plugInSelectorAbout, &aRecord, dataPtr, &result);
@@ -1611,21 +1699,23 @@ int TPspiCore::PlugInExecute(HWND hWnd)
 	{
 		return PSPI_ERR_FILTER_BAD_PROC;
 	}
+	GFilterStage = 0;
+	GAppHandle = hWnd;
+	// setUnstyler(); <-- maybe someone else
 	try
 	{
-	   filterStage = 0;
 	   PluginMainProc(filterSelectorParameters, &fRecord, dataPtr, &result);
 	   if (result ==  noErr)
 		  {
-		  filterStage = 1;
+		  GFilterStage = 1;
 		  PluginMainProc(filterSelectorPrepare, &fRecord, dataPtr, &result);
 		  if (result == noErr)
 			 {
-			 filterStage = 2;
+			 GFilterStage = 2;
 			 PluginMainProc(filterSelectorStart, &fRecord, dataPtr, &result);
 			 if (result == noErr)
 				{
-				filterStage = 3;
+				GFilterStage = 3;
 				while ((fRecord.outRect.right != 0) || (fRecord.inRect.right != 0)
 					   || ((fRecord.haveMask) && (fRecord.maskRect.right != 0)))
 					  {
@@ -1637,7 +1727,7 @@ int TPspiCore::PlugInExecute(HWND hWnd)
 				if (result == noErr)
 					{
 					// always if SelectorStart returned no err.
-					filterStage = 4;
+					GFilterStage = 4;
 					PluginMainProc(filterSelectorFinish, &fRecord, dataPtr, &finish_result);
 					DoAdvanceState();
 					}
@@ -1688,6 +1778,11 @@ else
 inline bool TPspiCore::EqRects(Rect *r1, Rect *r2)
 {
 	return ((r1->left == r2->left) && (r1->right == r2->right) && (r1->top == r2->top) && (r1->bottom == r2->bottom));
+}
+//---------------------------------------------------------------------------
+inline void TPspiCore::PurgeRect(Rect *r)
+{
+	r->top = r->left = r->bottom = r->right = 0;
 }
 //---------------------------------------------------------------------------
 // Routine for fixed format conversion -static 

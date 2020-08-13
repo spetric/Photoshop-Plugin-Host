@@ -18,6 +18,8 @@ class TPspiCore
 {
 	private:
 		int chanOrder[maxChans];
+		//
+		void getAviailableSpace(int &space32, int64 &space64);
 		bool loadPIPLResources(HINSTANCE DLL_Handle);
 		bool loadPIMIResources(HINSTANCE module);
 		void enumResourcesSingle(wstring &filter, ENUMCALLBACK enumFunc);
@@ -25,14 +27,14 @@ class TPspiCore
 		void prepareSuites(void);
 		void prepareFilter(void);
 		void buffer2Scanlines(void *buffer, LPBYTE *scan, int height, int stride, LPBYTE *cpyScan = 0);
-		void *resizeBuffer(void *data, int &rowBytes, Rect rect, int loPlane, int hiPlane, int &prevSize);
+		void *resizeBuffer(void *data, int &rowBytes, Rect &rect, int loPlane, int hiPlane, int &size);
 		int resizeImage(SpspiImage *src, SpspiImage *res, float sampleRate, int rectW, int rectH);
 		bool image2Buffer(SpspiImage *image, void *data, Rect plugRect, int rowBytes, int loPlane, int hiPlane, SpspiImage *res = NULL, float sampleRate = 0.0f);
 		bool buffer2Image(SpspiImage *image, void *data, Rect plugRect, int rowBytes, int loPlane, int hiPlane);
 		void dst2Src(void);
 		void releaseImage(SpspiImage *img, bool dispose);
+		//void setUnstyler(void);
 		//void releaseMask(SpspiImage *mask);
-		int filterStage;
 		unordered_map <unsigned long, SpspiHandle*> handleMap;
 		// pointer to host record
 		SpspiHostRecord *hRecordPtr;
@@ -88,5 +90,6 @@ class TPspiCore
 		inline float Fixed2Float(Fixed f_number);
 		inline Fixed FixRatio(short numer, short denom);
 		inline bool EqRects(Rect *r1, Rect *r2);
+		inline void PurgeRect(Rect *r);
 };
 

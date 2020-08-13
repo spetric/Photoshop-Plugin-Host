@@ -9,7 +9,7 @@ static char version[4];
 //-----------------------------------------------------------------
 const char* pspiGetVersion(void)
 {  
-	memcpy(version, "0.8\0", 4);
+	memcpy(version, "0.9\0", 4);
 	return version;
 }
 //-----------------------------------------------------------------

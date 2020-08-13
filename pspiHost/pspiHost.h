@@ -19,7 +19,7 @@ extern "C" PSPI_API int pspiSetImageOrientation(TImgOrientation orientation);
 extern "C" PSPI_API int pspiSetImage(TImgType type, int width, int height, void *imageBuff, int imageStride, void *alphaBuff = 0, int alphaStride = 0);
 // set mask using contiguous memory buffer pointer
 // note: source mask is shared - do not destroy source maske in your host program before plug-in is executed
-extern "C" PSPI_API int pspiSetMask(int width, int height, void *maskBuff, int maskStride, bool useMaskByPi = true);
+extern "C" PSPI_API int pspiSetMask(int width = 0, int height = 0, void *maskBuff = 0, int maskStride = 0, bool useMaskByPi = true);
 // block for adding image scanlines (possibly non-contiguous image)
 // note: source image is shared - do not destroy source image in your host program before plug-in is executed
 extern "C" PSPI_API int pspiStartImageSL(TImgType type, int width, int height, bool externalAlpha = false);
