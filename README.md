@@ -68,7 +68,7 @@ Embarcadero C++ OMF libs, Delphi pas files and release DLLs can be found in **Ad
 - Version 0.6: tested a bunch of filters on image types RGB, RGBA and RGB + external alpha channel. There is one issue when calling pspiHost DLL from Embarcadero C++/Delphi: image in plug-in view is upside-down, because TBitmap scanlines are bottom-up oriented.  
 - Version 0.7: renamed constants and enums, added API for setting image orientation.   
 - Version 0.8: calling connvetion changed from stdcall to cdecl to avoid name decorations. Delphi files adjusted. Bugs: filters using preview with ColBytes = 1 may carash, setting mask corrupts image, some filters crash because of bug in buffer resizer. All bux fixed, corrected code will be available in next version.
-- Version 0.9: bugs fixed, pspiSeMask changed (default arg values)
+- Version 0.9: bugs fixed, pspiSetMask changed (default arg values)
 
 ## capPspi
 Console application for testing engine.
