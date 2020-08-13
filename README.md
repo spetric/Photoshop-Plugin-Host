@@ -36,12 +36,12 @@ Currently not supported in host engine:
 - Adobe Photoshop SDK
 
 ### pspiHost APIs:
-- ```pspiGetVersion(void);``` get current version: returns pointer to 3 charactes describing pspiHost version (currently 0.8).  
+- ```pspiGetVersion(void);``` get current version: returns pointer to 3 charactes describing pspiHost version (currently 0.9).  
 - ```pspiSetPath(const wchar_t *filterFolder);``` sets path to filters directory (usually some 8bf collection).  
 - ```pspiSetRoi(int top = 0, int left = 0, int bottom = 0, int right = 0);``` sets ROI (region of interest) to be filtered (rectangle).
 - ```pspiSetImageOrientation(TImgOrientation orientation);``` sets image orientation (PSPI_IMG_ORIENTATION_ASIS, PSPI_IMG_ORIENTATION_INVERT). Last option internaly inverts image scanlines (used if image upside-down). Must be set once before setting image using buffer. Has no effect when scanlines are added one by one. This API does not have to be called if image scanlines are top-down oriented (OpenCV Mat). 
 - ```pspiSetImage(TImgType type, int width, int height, void *imageBuff, int imageStride, void *alphaBuff = 0, int alphaStride = 0);``` sets source image by passing contiguous image buffer pointer. If image has external alpha channel, pointer to alpha buffer can be passed as well. Also, you must pass image type, image width, height and image stride value and alpha stride value if alpha buffer is not-null.  
-- ```pspiSetMask(int width, int height, void *maskBuff, int maskStride, bool useMaskByPi = true);``` sets 8-bit single channel grayscale mask. Contiguous buffer must be passed, as well as mask width, height (the same size as image), mask stride value and boolean value useMakByPi. This value tells if the mask will be used by plug-in (if supported by plug-in) or only for blending filtered and source image. 
+- ```pspiSetMask(int width = 0, int height = 0, void *maskBuff = 0, int maskStride = 0, bool useMaskByPi = true);``` sets 8-bit single channel grayscale mask. Contiguous buffer must be passed, as well as mask width, height (the same size as image), mask stride value and boolean value useMakByPi. This value tells if the mask will be used by plug-in (if supported by plug-in) or only for blending filtered and source image. Calling pspiSetMask without parameters releases mask (internal scanline pointers). This holds also when mask is set by scanline addition. 
 - ```pspiStartImageSL(TImgType type, int width, int height, bool externalAlpha = false);``` prepares host image container for accepting source image scanlines. This option deals with images with non-contiguous memory or with images with unknown scanline alignement, so stride value can not be calculated.
 - ```pspiAddImageSL(void *imageScanLine, void *alphaScanLine = 0);``` adds one scanline at the time to host image container. This API must be called in a loop and caller must know scanlines orientation (first scanline first or last scanline first).
 - ```pspiFinishImageSL(int imageStride = 0, int alphaStride = 0);``` finishes scanline addition and completely sets host image container. If values for stride are not passed, destination image is not aligned to source image scanline boundary. Destination image strides are callculated by pspiHost.
@@ -59,7 +59,7 @@ Currently not supported in host engine:
 ### Important notes
 Source image from your application (one that needs to be filtered) passed to pspiHost using pspiSetImage, or by pspiStartImageSL-pspiAddImageSL-pspiFinishImageSL block is shared (image buffer is shared). You must not delete this image in your application before executing plug-in. Otherwise, pspiHost will crash. The same stands for the source mask passed to pspiHost.
 
-Mask and ROI can be used in conjunction, the result is intersection of mask and ROI. 
+Mask and ROI can be used in conjunction, the result is intersection of mask and ROI. If needed, mask is release calling pspiSetMask() without parameters.
 
 Embarcadero C++ OMF libs, Delphi pas files and release DLLs can be found in **Additional** directory.  
 
@@ -68,6 +68,7 @@ Embarcadero C++ OMF libs, Delphi pas files and release DLLs can be found in **Ad
 - Version 0.6: tested a bunch of filters on image types RGB, RGBA and RGB + external alpha channel. There is one issue when calling pspiHost DLL from Embarcadero C++/Delphi: image in plug-in view is upside-down, because TBitmap scanlines are bottom-up oriented.  
 - Version 0.7: renamed constants and enums, added API for setting image orientation.   
 - Version 0.8: calling connvetion changed from stdcall to cdecl to avoid name decorations. Delphi files adjusted. Bugs: filters using preview with ColBytes = 1 may carash, setting mask corrupts image, some filters crash because of bug in buffer resizer. All bux fixed, corrected code will be available in next version.
+- Version 0.9: bugs fixed, pspiSeMask changed (default arg values)
 
 ## capPspi
 Console application for testing engine.
