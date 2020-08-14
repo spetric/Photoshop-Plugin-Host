@@ -79,7 +79,7 @@ Console application for testing engine.
 
 ## NiGulp
 Fully functional visual application written in Embarcadero C++ Berlin 10.1 for executing 8bf filters via pspiHost engine.
-For more information please read [NiGulp Readme](https://github.com/spetric/Photoshop-Plugin-Host/blob/master/NiGulp/Readme.md).
+For more information please check [NiGulp Readme](https://github.com/spetric/Photoshop-Plugin-Host/blob/master/NiGulp/Readme.md).
 
 ### Required
 - Embarcadero C++ IDE
