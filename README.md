@@ -59,7 +59,7 @@ Currently not supported in host engine:
 ### Important notes
 Source image from your application (one that needs to be filtered) passed to pspiHost using pspiSetImage, or by pspiStartImageSL-pspiAddImageSL-pspiFinishImageSL block is shared (image buffer is shared). You must not delete this image in your application before executing plug-in. Otherwise, pspiHost will crash. The same stands for the source mask passed to pspiHost.
 
-Mask and ROI can be used in conjunction, the result is intersection of mask and ROI. If needed, mask is release calling pspiSetMask() without parameters.
+Mask and ROI can be used in conjunction, the result is intersection of mask and ROI. If needed, mask is released by calling pspiSetMask() without parameters.
 
 Embarcadero C++ OMF libs, Delphi pas files and release DLLs can be found in **Additional** directory.  
 
