@@ -17,6 +17,7 @@ Currently supported image formats:
 - RGBA
 - BGRA
 - GRAYSCALE
+- GRAYSCALEA
 - RGB + external alpha channel
 - BGR + external alpha channel
 - GRAYSCALE + external alpha channel.
