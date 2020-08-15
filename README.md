@@ -20,7 +20,7 @@ Currently supported image formats:
 - GRAYSCALEA
 - RGB + external alpha channel
 - BGR + external alpha channel
-- GRAYSCALE + external alpha channel.
+- GRAYSCALE + external alpha channel
 
 Image can be passed to engine using single contiguous image buffer, or by adding scalines (for possibly non-contiguous image buffers). 
 
