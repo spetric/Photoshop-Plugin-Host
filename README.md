@@ -92,7 +92,7 @@ Here are few NiGulp screenshots:
     </br>
     <img src='testScreens/NiGulp091.jpg' width='240'>
     <img src='testScreens/NiGulp092.jpg' width='240'>
-    <img src='testScreens/NiGulp093.jpg' width='222'>    
+    <img src='testScreens/NiGulp093.jpg' width='224'>    
 </p>
 The first and third image used with permission of Roman Shalenkin: https://500px.com/shalenkin.    
 
