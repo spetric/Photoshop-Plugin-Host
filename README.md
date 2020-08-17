@@ -94,6 +94,6 @@ Here are few NiGulp screenshots:
     <img src='testScreens/NiGulp092.jpg' width='240'>
     <img src='testScreens/NiGulp093.jpg' width='240'>    
 </p>
-The first and third image, from photography collection of Roman Shalenkin.  
+The first and third image, from photography collection of Roman Shalenkin.     
 ### License
 © Siniša Petrić, www.sigmapi-design.com, MIT license.
