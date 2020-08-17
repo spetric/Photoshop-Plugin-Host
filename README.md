@@ -86,7 +86,13 @@ For more information please check [NiGulp Readme](https://github.com/spetric/Pho
 - Embarcadero C++ IDE
 - prebuilt pspiHost.dll and static pspiHost libraries (lib/a) available in Additional directory. 
 
+### Screenshots
+Here are few NiGulp screenshots:
+<p align='left'>
+    </br>
+    <img src='testScreens/NiGulp091.jpg' width='200'>
+    <img src='testScreens/NiGulp092.jpg' width='200'>
+</p>
 
-
-
-
+### License
+© Siniša Petrić, www.sigmapi-design.com, MIT license.
