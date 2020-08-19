@@ -1,7 +1,7 @@
 ### Nigulp 0.9
 
 Contains complete project and source code for building usefull application for applying Photoshop 8bf filters to images.
-Project is written in Enbarcadero Berlin 10.1 C++. It uses some 3rd party VCL components so if you want to build the project,
+Project is written in Embarcadero Berlin 10.1 C++. It uses some 3rd party VCL components so if you want to build the project,
 you need to replace componenets with your own.
 
 Here is a list of 3rd party components used in this project. 
