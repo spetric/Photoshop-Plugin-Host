@@ -84,7 +84,7 @@ For more information please check [NiGulp Readme](https://github.com/spetric/Pho
 
 ### Required
 - Embarcadero C++ IDE
-- prebuilt pspiHost.dll and static pspiHost libraries (lib/a) available in Additional directory. 
+- Prebuilt pspiHost.dll and static pspiHost libraries (lib/a) available in Additional directory. 
 
 ### Screenshots
 Here are few NiGulp screenshots:
