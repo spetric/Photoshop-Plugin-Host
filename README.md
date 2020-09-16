@@ -28,6 +28,7 @@ Currently not supported in host engine:
 - padding
 - parameters saving/restoring
 - filters requiring SuitePea
+- filters requiring channel ports
 - descriptorParameters handling
 - ICCProfile
 - Big document support (prepared but not yet implemented)
