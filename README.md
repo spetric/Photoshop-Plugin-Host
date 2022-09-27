@@ -77,7 +77,7 @@ Console application for testing engine.
 
 ### Required
 - C++ compiler (tested on Visual Studio 2017) 
-- OpenCV
+- Adobe SDK
 
 ## NiGulp
 Fully functional visual application written in Embarcadero C++ Berlin 10.1 for executing 8bf filters via pspiHost engine.
