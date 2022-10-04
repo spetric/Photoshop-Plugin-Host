@@ -6,6 +6,7 @@
 #include "PIAbout.h"
 #include "PIFilter.h"
 #include <PIProperties.h>
+#include "pspiHelper.hpp"
 typedef void(*ASPptr)(void*);
 typedef bool(*CPRptr)(void*, uint32 &);
 typedef void(*PGRptr)(void *, uint32, uint32);
@@ -14,9 +15,11 @@ CPRptr SuitesCPR;
 PGRptr SuitesPGR;
 void *SuitesCorePtr;
 static FilterRecord *SuitesFPR;
+static SpspiHostRecord *SuitesHostPR;
 static unordered_map<unsigned long, SpspiHandle*> *SuitesHMP;
 static int *SuitesChanOrder;
 static int SuitesDisplChans;
+static SpspiImage cpsRes;
 //---------------------------------------------------------------------------
 // Check if handle exists
 //---------------------------------------------------------------------------
@@ -24,6 +27,13 @@ bool AllocatedBySuite(Handle handle)
 {
 	unsigned long ulh = (unsigned long)handle;
 	return !(SuitesHMP->find(ulh) == SuitesHMP->end());
+}
+//---------------------------------------------------------------------------
+// clean the house
+//---------------------------------------------------------------------------
+void ReleaseSuiteData(void)
+{
+	//TODO: clean the house!
 }
 //---------------------------------------------------------------------------
 //
@@ -413,6 +423,7 @@ OSErr DoDisplayPixels(const PSPixelMap *source, const VRect *srcRect, int32 dstR
 	{
 		if (source->colBytes == 1)
 		{
+			/*
 			for (int y = 0; y < h; y++)
 			{
 				src = ((LPBYTE)source->baseAddr) + y * source->rowBytes; // +srcRect->left;
@@ -424,17 +435,30 @@ OSErr DoDisplayPixels(const PSPixelMap *source, const VRect *srcRect, int32 dstR
 						LPBYTE src_ptr = src + k * source->planeBytes;
 						dst[SuitesChanOrder[k]] = src_ptr[k];
 					}
-		            /*
-					rgb[0]= *src;
-		            rgb[1] = *LPBYTE(src + source->planeBytes);
-		            rgb[2] = *LPBYTE(src + 2*source->planeBytes);
-		            dst[0] = rgb[SuitesChanOrder[0]];
-		            dst[1] = rgb[SuitesChanOrder[1]];
-		            dst[2] = rgb[SuitesChanOrder[2]];
-					*/
+					//rgb[0]= *src;
+		            //rgb[1] = *LPBYTE(src + source->planeBytes);
+		            //rgb[2] = *LPBYTE(src + 2*source->planeBytes);
+		            //dst[0] = rgb[SuitesChanOrder[0]];
+		            //dst[1] = rgb[SuitesChanOrder[1]];
+		            //dst[2] = rgb[SuitesChanOrder[2]];
 					// move forward
 					dst += bypp;
 					src += source->colBytes;
+				}
+			}
+			*/
+			// suggested by Irfan Škiljan
+			for (int32 k = 0; k < SuitesDisplChans; k++)
+			{			
+		        uint8* inPixel = (uint8*)source->baseAddr + ((size_t)k * (size_t)source->planeBytes);
+		        for (int32 y = 0; y < h; y++)
+		        {
+	                dst = bits + bpl*y;
+	                for (int32 x = 0; x < w; x++)
+	                {
+		                dst[x*bypp + SuitesChanOrder[k]] = *inPixel;
+		                inPixel++;
+	                }	
 				}
 			}
 		}
@@ -507,14 +531,107 @@ OSErr DoSuiteSetProperty (PIType signature, PIType key, int32 index,
 // Read Pixels routine  PSP
 //
 //---------------------------------------------------------------------------
-static OSErr DoReadPixels (ChannelReadPort        port,
+static OSErr DoReadPixels (ChannelReadPort			port,
                          const PSScaling       *scaling,
                          const VRect           *writeRect,
                          const PixelMemoryDesc *destination,
                          VRect                 *wroteRect)
 {
+	if (destination->depth != 8)
+		return errUnsupportedDepth;
+	if ((destination->bitOffset % 8) != 0)  // the offsets must be aligned to byte. 
+		return errUnsupportedBitOffset;
+	if ((destination->colBits % 8) != 0)
+		return errUnsupportedColBits;
+	if ((destination->rowBits % 8) != 0)
+		return errUnsupportedRowBits;
 
- return errPlugInHostInsufficient;
+	int channel = (int32)port;
+
+	if (channel < ctUnspecified || channel > ctSelectionMask) // < gray || > selectionMask
+		return errUnknownPort;
+	VRect srcRect = scaling->sourceRect;
+	VRect dstRect = scaling->destinationRect;
+
+	int srcWidth = srcRect.right - srcRect.left;
+	int srcHeight = srcRect.bottom - srcRect.top;
+	int dstWidth = dstRect.right - dstRect.left;
+	int dstHeight = dstRect.bottom - dstRect.top;
+	bool isSelection = (channel == ctSelectionMask);
+	SpspiImage *source = SuitesHostPR->srcImage;
+	if (isSelection)
+	{
+		/*
+		if (srcWidth == dstWidth && srcHeight == dstHeight)
+				{
+					FillSelectionMask(destination, mask, srcRect);
+				}
+				else if (dstWidth < srcWidth || dstHeight < srcHeight) // scale down
+				{
+					if ((scaledSelectionMask == null) || scaledSelectionMask.Width != dstWidth || scaledSelectionMask.Height != dstHeight)
+					{
+						if (scaledSelectionMask != null)
+						{
+							scaledSelectionMask.Dispose();
+							scaledSelectionMask = null;
+						}
+
+						try
+						{
+							scaledSelectionMask = new Surface8(dstWidth, dstHeight);
+							scaledSelectionMask.SuperSampleFitSurface(mask);
+						}
+						catch (OutOfMemoryException)
+						{
+							return memFullErr;
+						}
+					}
+
+					FillSelectionMask(destination, scaledSelectionMask, dstRect);
+				}
+				else if (dstWidth > srcWidth || dstHeight > srcHeight) // scale up
+				{
+					if ((scaledSelectionMask == null) || scaledSelectionMask.Width != dstWidth || scaledSelectionMask.Height != dstHeight)
+					{
+						if (scaledSelectionMask != null)
+						{
+							scaledSelectionMask.Dispose();
+							scaledSelectionMask = null;
+						}
+
+						try
+						{
+							scaledSelectionMask = new Surface8(dstWidth, dstHeight);
+							scaledSelectionMask.BicubicFitSurface(mask);
+						}
+						catch (OutOfMemoryException)
+						{
+							return PSError.memFullErr;
+						}
+					}
+
+					FillSelectionMask(destination, scaledSelectionMask, dstRect);
+				}
+			*/
+
+			}
+			else
+			{
+				if (srcWidth == dstWidth && srcHeight == dstHeight)
+					hlpCopyChannelData(SuitesHostPR, SuitesChanOrder, channel, destination, source, srcRect);
+				else if (dstWidth != srcWidth || dstHeight != srcHeight) // scale image
+				{
+					if ((cpsRes.imageBuff == NULL) || cpsRes.width != dstWidth || cpsRes.height != dstHeight)
+					{
+						if (cpsRes.imageBuff)
+							hlpReleaseImage(&cpsRes, true);
+						hlpSetupImageFromMaster(source, &cpsRes, dstWidth, dstHeight);
+					}
+					hlpCopyChannelData(SuitesHostPR, SuitesChanOrder, channel, destination, &cpsRes, dstRect);
+				}
+			}
+			wroteRect = &dstRect;
+ return noErr;
 }
 //---------------------------------------------------------------------------
 //

@@ -86,6 +86,7 @@ class TPspiCore
 		int PlugInAbout(HWND hWnd);
 		int PlugInExecute(HWND hWnd);
 		int PlugInEnumerate(ENUMCALLBACK enumFunc, bool recurseSubFolders);
+		int PlugInGetInfos(char *piCategory, char *piName, char *piEntryName, int bufSize);
 		// inline
 		inline float Fixed2Float(Fixed f_number);
 		inline Fixed FixRatio(short numer, short denom);

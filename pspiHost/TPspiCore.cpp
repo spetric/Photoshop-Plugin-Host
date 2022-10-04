@@ -234,6 +234,7 @@ TPspiCore::TPspiCore()
 	 ProgressCallBack = 0;
 	 hRecordPtr = &HostRecord;
 	 SuitesFPR = &fRecord;
+	 SuitesHostPR = hRecordPtr;
 	 SuitesASP = AdvanceStateProcessPtr;
 	 SuitesCPR = ColorPickerProcessPtr;
 	 SuitesPGR = ProgressProcessPtr;
@@ -266,6 +267,8 @@ TPspiCore::~TPspiCore()
 //-----------------------------------------------------------------
 void TPspiCore::releaseImage(SpspiImage *img, bool dispose)
 {
+	hlpReleaseImage(img, dispose);
+/*
 	if (img->width)
 	{
 		if (img->imageScan)
@@ -287,6 +290,7 @@ void TPspiCore::releaseImage(SpspiImage *img, bool dispose)
 		img->channels = 0;
 		img->exaChannels = 0;
 	}
+*/
 }
 //-----------------------------------------------------------------
 // set windowsHookEx
@@ -863,7 +867,8 @@ void *TPspiCore::resizeBuffer(void *data, int &rowBytes, Rect &rect, int loPlane
 	int w = rect.right - rect.left;
 	int h = rect.bottom - rect.top;
 	rowBytes = nplanes * w;
-	size = nplanes * w * h;
+	//size = nplanes * w * h;
+	size = nplanes * w * (h+1);		// suggested by Irfan Škiljan
 	if (data)
 	{
 		if (size == GlobalSize(data))	// same size, do not resize
@@ -1800,6 +1805,22 @@ inline Fixed TPspiCore::FixRatio(short numer, short denom)
     {
     return ((long)numer << 16) / denom;
     }
+}
+//---------------------------------------------------------------------------
+// Routine to get plug-in infos -static (suggested by Irfan Škiljan)
+//---------------------------------------------------------------------------
+int TPspiCore::PlugInGetInfos(char *piCategory,char *piName,char *piEntryName,int bufSize)
+{
+    // check if plug-in is loaded
+    if (!HostRecord.filterLoaded)
+       return PSPI_ERR_FILTER_NOT_LOADED;
+    if(piCategory != NULL)
+      strncpy_s(piCategory, bufSize, HostRecord.piCategory.c_str(), bufSize);
+    if(piName != NULL)
+      strncpy_s(piName,bufSize, HostRecord.piName.c_str(), bufSize);
+    if(piEntryName != NULL)
+      strncpy_s(piEntryName,bufSize, HostRecord.piEntrypointName.c_str(), bufSize);
+    return 0;
 }
 
 
